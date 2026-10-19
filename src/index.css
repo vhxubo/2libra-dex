@@ -1,6 +1,9 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
+/* 类切换式深色模式：html.dark 时启用 dark: 变体 */
+@custom-variant dark (&:where(.dark, .dark *));
+
 @theme {
   --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
     "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans CJK SC",
@@ -36,13 +39,41 @@
 @layer base {
   * {
     @apply border-border outline-ring/50;
+    /* 焦点环偏移空隙默认是白色，深色下改用页面背景色 */
+    --tw-ring-offset-color: var(--color-background);
   }
 
   html {
     @apply bg-background;
+    color-scheme: light;
   }
 
   body {
     @apply bg-background font-sans text-foreground antialiased;
   }
+}
+
+/* 2Libra 图鉴深色资料库配色：覆盖 @theme 发出的同名变量 */
+.dark {
+  color-scheme: dark;
+
+  --color-background: #0b1220;
+  --color-foreground: #e2e8f0;
+  --color-card: #121b2d;
+  --color-card-foreground: #e2e8f0;
+  --color-popover: #182136;
+  --color-popover-foreground: #e2e8f0;
+  --color-primary: #3b82f6;
+  --color-primary-foreground: #ffffff;
+  --color-secondary: #1b2740;
+  --color-secondary-foreground: #e2e8f0;
+  --color-muted: #172135;
+  --color-muted-foreground: #94a3b8;
+  --color-accent: #1a2947;
+  --color-accent-foreground: #93c5fd;
+  --color-destructive: #ef4444;
+  --color-destructive-foreground: #ffffff;
+  --color-border: #24304a;
+  --color-input: #33415e;
+  --color-ring: #3b82f6;
 }
