@@ -1,0 +1,317 @@
+{
+  "meta": {
+    "badgeCount": 31
+  },
+  "badges": [
+    {
+      "id": "followers",
+      "name": "篝火",
+      "icon": "https://r2.2libra.com/badge/followers.svg",
+      "level": "T0",
+      "rate": 0.01,
+      "condition": "被关注人数达到 99 人。",
+      "attrType": "佩戴属性",
+      "attr": "篝火般受人关注，为你的影响力护驾，发帖与评论的消耗恒定为 10 金币。"
+    },
+    {
+      "id": "year_streak",
+      "name": "全勤",
+      "icon": "https://r2.2libra.com/badge/year_streak.svg",
+      "level": "T0",
+      "rate": 0.06,
+      "condition": "连续签到 365 天，这...很困难。",
+      "attrType": "佩戴属性",
+      "attr": "佩戴时补签费用减少 200 金币，签到额外获得 100 金币。"
+    },
+    {
+      "id": "grand_balance",
+      "name": "大平衡者",
+      "icon": "https://r2.2libra.com/badge/grand_balance.svg",
+      "level": "T0",
+      "rate": 0.1,
+      "condition": "属性均达到 2Libra 设定最高值（10）的用户。",
+      "attrType": "佩戴属性",
+      "attr": "是谁问还有谁？？？2Libra 属性全方位拉满！大部分操作金币消耗减少 30%。"
+    },
+    {
+      "id": "guardian",
+      "name": "守护者",
+      "icon": "https://r2.2libra.com/badge/guardian.svg",
+      "level": "T0",
+      "rate": 0.11,
+      "condition": "自愿加入，且具备维护 2Libra 内容与秩序要求的用户。",
+      "attrType": "描述",
+      "attr": "2Libra 守护者，拥有者可对站内部分内容做修正，每周平衡收益获得最高。"
+    },
+    {
+      "id": "all_rounder",
+      "name": "六边形战士",
+      "icon": "https://r2.2libra.com/badge/all_rounder.svg",
+      "level": "T0",
+      "rate": 0.14,
+      "condition": "属性均达到 8 及以上的用户。",
+      "attrType": "佩戴属性",
+      "attr": "还有谁？？？大部分操作金币消耗减少 15%。"
+    },
+    {
+      "id": "support",
+      "name": "2Libra 赞助者",
+      "icon": "https://r2.2libra.com/badge/support.svg",
+      "level": "T0",
+      "rate": 0.31,
+      "condition": "赞助过一次 2Libra。",
+      "attrType": "佩戴属性",
+      "attr": "感谢你对 2Libra 的支持 ♥️"
+    },
+    {
+      "id": "night_owl",
+      "name": "夜猫",
+      "icon": "https://r2.2libra.com/badge/night_owl.svg",
+      "level": "T0",
+      "rate": 0.38,
+      "condition": "凌晨 2 点后 6 点前发布的帖子数达到 5 篇。",
+      "attrType": "佩戴属性",
+      "attr": "这么晚还在啊？触发平衡惩戒，大部分操作金币消耗增加 20%。"
+    },
+    {
+      "id": "i_was_here",
+      "name": "路过",
+      "icon": "https://r2.2libra.com/badge/i_was_here.svg",
+      "level": "T0",
+      "rate": 0.44,
+      "condition": "发布评论时有 1/1000 的概率掉落该徽章。",
+      "attrType": "描述",
+      "attr": "就刚好路过，刚好拿到了。"
+    },
+    {
+      "id": "level_10",
+      "name": "等级丰碑",
+      "icon": "https://r2.2libra.com/badge/level_10.svg",
+      "level": "T0",
+      "rate": 0.48,
+      "condition": "等级达到 10 级。",
+      "attrType": "佩戴属性",
+      "attr": "佩戴时，获得金币减少 50%，获得经验增加 50%。"
+    },
+    {
+      "id": "lucker",
+      "name": "幸运儿",
+      "icon": "https://r2.2libra.com/badge/lucker.svg",
+      "level": "T0",
+      "rate": 0.52,
+      "condition": "金币池中奖次数达到 50 次。",
+      "attrType": "佩戴属性",
+      "attr": "好运到～佩戴此徽章的用户，金币池中奖将额外获得 100 金币。"
+    },
+    {
+      "id": "seed_user",
+      "name": "种子用户",
+      "icon": "https://r2.2libra.com/badge/seed_user.svg",
+      "level": "T0",
+      "rate": 3.36,
+      "condition": "2026 年 01 月 01 日前发布过 2 个帖子或 5 条评论的用户。",
+      "attrType": "佩戴属性",
+      "attr": "大部分操作金币消耗减少 10%。"
+    },
+    {
+      "id": "chaos",
+      "name": "混沌",
+      "icon": "https://r2.2libra.com/badge/chaos.svg",
+      "level": "T0",
+      "rate": 3.41,
+      "condition": "在潘多拉事件中随机获得。",
+      "attrType": "佩戴属性",
+      "attr": "混沌发生！大部分金币的变动在原数值的基础上摆动 50%。"
+    },
+    {
+      "id": "capybara",
+      "name": "卡皮巴拉",
+      "icon": "https://r2.2libra.com/badge/capybara.svg",
+      "level": "T0",
+      "rate": 6.07,
+      "condition": "签到时，有 2.5% 的概率会掉落该徽章，无所谓啦。",
+      "attrType": "佩戴属性",
+      "attr": "情绪很稳定，有 10% 的概率获得的金币变为 0。"
+    },
+    {
+      "id": "horse_year",
+      "name": "马上来",
+      "icon": "https://r2.2libra.com/badge/horse_year.svg",
+      "level": "T0",
+      "rate": 22.58,
+      "condition": "授予在 2026 年 2 月 15 至 2026 年 3 月 15 日登录过的用户。",
+      "attrType": "佩戴属性",
+      "attr": "新年快乐~ 2Libra 祝你和家人们马年健康幸福，财运马上来！"
+    },
+    {
+      "id": "rich",
+      "name": "I'm rich",
+      "icon": "https://r2.2libra.com/badge/rich.svg",
+      "level": "T1",
+      "rate": 0.06,
+      "condition": "2Libra 上拥有的金币超过 300,000。",
+      "attrType": "佩戴属性",
+      "attr": "用户对你的帖子和评论回复有 50% 概率从中顺走最多 100 金币。"
+    },
+    {
+      "id": "good_point",
+      "name": "观点不错",
+      "icon": "https://r2.2libra.com/badge/good_point.svg",
+      "level": "T1",
+      "rate": 0.15,
+      "condition": "用户帖子与评论累计收到 👍 超过 200 个。",
+      "attrType": "佩戴属性",
+      "attr": "获得 👍 的收益提升 2 倍。"
+    },
+    {
+      "id": "guide",
+      "name": "引路者",
+      "icon": "https://r2.2libra.com/badge/guide.svg",
+      "level": "T1",
+      "rate": 0.38,
+      "condition": "经过你邀请注册 2Libra 的用户数达到 10 个。",
+      "attrType": "佩戴属性",
+      "attr": "邀请用户注册，将额外获得 200 金币。"
+    },
+    {
+      "id": "do_me_a_favor",
+      "name": "走个面",
+      "icon": "https://r2.2libra.com/badge/do_me_a_favor.svg",
+      "level": "T1",
+      "rate": 0.47,
+      "condition": "刷新最高在线人数时，会积聚可获得次数，当天互动可概率获得。",
+      "attrType": "佩戴属性",
+      "attr": "为 2Libra 走个面儿，就有了！佩戴时，活跃度会增加提升 20%。"
+    },
+    {
+      "id": "go_scout_ahead",
+      "name": "前排打手",
+      "icon": "https://r2.2libra.com/badge/go_scout_ahead.svg",
+      "level": "T1",
+      "rate": 0.69,
+      "condition": "用户评论占前排（楼层前 3）的条数超过 100。",
+      "attrType": "佩戴属性",
+      "attr": "发表评论消耗的金币恒定为 8 金币。"
+    },
+    {
+      "id": "prankster",
+      "name": "捣蛋鬼",
+      "icon": "https://r2.2libra.com/badge/prankster.svg",
+      "level": "T1",
+      "rate": 2.19,
+      "condition": "愚人节当天互动获得。",
+      "attrType": "佩戴属性",
+      "attr": "反转变化！金币的变动有概率正负值反转。"
+    },
+    {
+      "id": "20260601",
+      "name": "谁还不是宝宝呢！？",
+      "icon": "https://r2.2libra.com/badge/20260601.svg",
+      "level": "T1",
+      "rate": 3.91,
+      "condition": "2026 年儿童节当天限时领取。",
+      "attrType": "描述",
+      "attr": "希望你在今天可以找回小时候独有的快乐。"
+    },
+    {
+      "id": "mid_autumn",
+      "name": "观月",
+      "icon": "https://r2.2libra.com/badge/mid_autumn.svg",
+      "level": "T1",
+      "rate": 9.22,
+      "condition": "2026 年中秋节期间签到获得。",
+      "attrType": "描述",
+      "attr": "共此明月，遥寄相思。"
+    },
+    {
+      "id": "2libra_1",
+      "name": "2Libra 一周年！",
+      "icon": "https://r2.2libra.com/badge/2libra_1.svg",
+      "level": "T1",
+      "rate": 29.92,
+      "condition": "2026 年 8 月 26 日（含）发布过一篇帖子或一条评论的用户。",
+      "attrType": "描述",
+      "attr": "感谢你的相伴♥️。"
+    },
+    {
+      "id": "justice",
+      "name": "正义使者",
+      "icon": "https://r2.2libra.com/badge/justice.svg",
+      "level": "T2",
+      "rate": 0.11,
+      "condition": "检定的帖子和评论数之和超过 50 个。",
+      "attrType": "佩戴属性",
+      "attr": "检定成功会额外获得 100 金币。"
+    },
+    {
+      "id": "blogger",
+      "name": "部落格",
+      "icon": "https://r2.2libra.com/badge/blogger.svg",
+      "level": "T2",
+      "rate": 0.45,
+      "condition": "个人博客被 2Libra 收录。",
+      "attrType": "描述",
+      "attr": "一个爱写博客的人路过。"
+    },
+    {
+      "id": "seek_balance",
+      "name": "寻找平衡",
+      "icon": "https://r2.2libra.com/badge/seek_balance.svg",
+      "level": "T2",
+      "rate": 0.65,
+      "condition": "工作和生活区各发超过 10 个帖子。",
+      "attrType": "描述",
+      "attr": "很平衡，导致无法从中获取什么也无法从中失去什么。"
+    },
+    {
+      "id": "open_handed",
+      "name": "慷慨解囊",
+      "icon": "https://r2.2libra.com/badge/open_handed.svg",
+      "level": "T2",
+      "rate": 0.68,
+      "condition": "累计打赏超过 5000 金币。",
+      "attrType": "佩戴属性",
+      "attr": "为你的慷慨买单，打赏后，有 50% 的概率返还 40% 金币。"
+    },
+    {
+      "id": "listen_to_me",
+      "name": "都听我说！",
+      "icon": "https://r2.2libra.com/badge/listen_to_me.svg",
+      "level": "T2",
+      "rate": 1.57,
+      "condition": "用户发布的评论数超过 200 个。",
+      "attrType": "佩戴属性",
+      "attr": "发布评论金币消耗降低 30%。"
+    },
+    {
+      "id": "collector",
+      "name": "收藏家",
+      "icon": "https://r2.2libra.com/badge/collector.svg",
+      "level": "T3",
+      "rate": 0.14,
+      "condition": "累计收藏的帖子数超过 100个。",
+      "attrType": "描述",
+      "attr": "你什么都收藏是吗？😏"
+    },
+    {
+      "id": "warm_hearted",
+      "name": "温暖的人",
+      "icon": "https://r2.2libra.com/badge/warm_hearted.svg",
+      "level": "T3",
+      "rate": 0.22,
+      "condition": "表态 ❤️ 超过 200 个。",
+      "attrType": "佩戴属性",
+      "attr": "谢谢你。每次给人点 ❤️，可以返还 20% 金币。"
+    },
+    {
+      "id": "storyteller",
+      "name": "讲故事的人",
+      "icon": "https://r2.2libra.com/badge/storyteller.svg",
+      "level": "T3",
+      "rate": 0.29,
+      "condition": "发布过的正文长度超过 500 字的帖子数超过 10 个。",
+      "attrType": "佩戴属性",
+      "attr": "发表基础帖子消耗的金币恒定为 10 金币。"
+    }
+  ]
+}
