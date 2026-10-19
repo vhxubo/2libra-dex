@@ -90,7 +90,7 @@ export function BadgeToolbar({
   return (
     <div className="flex flex-col gap-2">
       <div className="flex flex-wrap items-center gap-2">
-        <div className="relative min-w-52 flex-1 basis-56">
+        <div className="relative w-full sm:w-auto sm:min-w-52 sm:flex-1 sm:basis-56">
           <Search
             className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
             aria-hidden
@@ -119,9 +119,9 @@ export function BadgeToolbar({
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="sm" className="gap-1.5">
+            <Button variant="outline" size="sm" className="w-[calc(50%-0.25rem)] gap-1.5 sm:w-auto">
               <ListFilter className="text-muted-foreground" aria-hidden />
-              等级 · {activeLevelSummary}
+              <span className="min-w-0 truncate">等级 · {activeLevelSummary}</span>
               <ChevronDown className="opacity-60" aria-hidden />
             </Button>
           </DropdownMenuTrigger>
@@ -145,8 +145,8 @@ export function BadgeToolbar({
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="sm" className="gap-1.5">
-              属性 · {attrType ?? '全部'}
+            <Button variant="outline" size="sm" className="w-[calc(50%-0.25rem)] gap-1.5 sm:w-auto">
+              <span className="min-w-0 truncate">属性 · {attrType ?? '全部'}</span>
               <ChevronDown className="opacity-60" aria-hidden />
             </Button>
           </DropdownMenuTrigger>
@@ -170,12 +170,12 @@ export function BadgeToolbar({
           </DropdownMenuContent>
         </DropdownMenu>
 
-        <div className="ms-auto flex flex-wrap items-center gap-2">
+        <div className="flex w-full flex-wrap items-center gap-2 sm:ms-auto sm:w-auto">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" className="gap-1.5">
+              <Button variant="outline" size="sm" className="min-w-0 flex-1 gap-1.5 sm:flex-none">
                 <ArrowUpDown className="text-muted-foreground" aria-hidden />
-                {currentSortLabel}
+                <span className="min-w-0 truncate">{currentSortLabel}</span>
                 <ChevronDown className="opacity-60" aria-hidden />
               </Button>
             </DropdownMenuTrigger>
