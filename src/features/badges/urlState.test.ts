@@ -15,6 +15,11 @@ describe('parseBadgeSearchParams', () => {
     expect(parse('')).toEqual(DEFAULT_URL_STATE)
   })
 
+  it('默认排序为获得率从高到低', () => {
+    expect(DEFAULT_URL_STATE.sort).toBe('rate-desc')
+    expect(parse('').sort).toBe('rate-desc')
+  })
+
   it('解析全部合法参数', () => {
     const state = parse(
       '?q=篝火&level=T0,T2&attr=佩戴属性&sort=rate-desc&view=table&page=3&badge=followers',
@@ -36,7 +41,8 @@ describe('parseBadgeSearchParams', () => {
   })
 
   it('非法排序、视图、页码恢复默认', () => {
-    expect(parse('?sort=bogus').sort).toBe('default')
+    expect(parse('?sort=bogus').sort).toBe('rate-desc')
+    expect(parse('?sort=default').sort).toBe('rate-desc')
     expect(parse('?view=grid').view).toBe('card')
     expect(parse('?page=0').page).toBe(1)
     expect(parse('?page=abc').page).toBe(1)

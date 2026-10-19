@@ -1,10 +1,21 @@
-import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import { cn } from '@/lib/utils'
 
 interface PaginationProps {
   page: number
   totalPages: number
   onPageChange: (page: number) => void
+  pageSize?: number
+  pageSizeOptions?: readonly number[]
+  onPageSizeChange?: (pageSize: number) => void
 }
 
 function getPageItems(page: number, total: number): (number | '…')[] {
@@ -21,13 +32,53 @@ function getPageItems(page: number, total: number): (number | '…')[] {
   return items
 }
 
-export function Pagination({ page, totalPages, onPageChange }: PaginationProps) {
+export function Pagination({
+  page,
+  totalPages,
+  onPageChange,
+  pageSize,
+  pageSizeOptions,
+  onPageSizeChange,
+}: PaginationProps) {
+  const hasSizeSelector =
+    pageSize !== undefined &&
+    pageSizeOptions !== undefined &&
+    onPageSizeChange !== undefined
+
   return (
-    <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2">
-      <p data-testid="page-status" className="whitespace-nowrap text-sm tabular-nums text-muted-foreground">
-        第 <span className="font-medium text-foreground">{page}</span> / {totalPages} 页
-      </p>
-      <nav aria-label="分页" className="flex items-center gap-1">
+    <div
+      className={cn(
+        'flex flex-wrap items-center gap-x-4 gap-y-2',
+        hasSizeSelector ? 'justify-between' : 'justify-end',
+      )}
+    >
+      {hasSizeSelector && (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" size="sm" className="gap-1.5">
+              {pageSize} 条 / 页
+              <ChevronDown className="opacity-60" aria-hidden />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start">
+            <DropdownMenuRadioGroup
+              value={String(pageSize)}
+              onValueChange={(value) => onPageSizeChange(Number(value))}
+            >
+              {pageSizeOptions.map((option) => (
+                <DropdownMenuRadioItem key={option} value={String(option)}>
+                  {option} 条 / 页
+                </DropdownMenuRadioItem>
+              ))}
+            </DropdownMenuRadioGroup>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      )}
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+        <p data-testid="page-status" className="whitespace-nowrap text-sm tabular-nums text-muted-foreground">
+          第 <span className="font-medium text-foreground">{page}</span> / {totalPages} 页
+        </p>
+        <nav aria-label="分页" className="flex items-center gap-1">
         <Button
           variant="outline"
           size="icon"
@@ -65,7 +116,8 @@ export function Pagination({ page, totalPages, onPageChange }: PaginationProps) 
         >
           <ChevronRight aria-hidden />
         </Button>
-      </nav>
+        </nav>
+      </div>
     </div>
   )
 }

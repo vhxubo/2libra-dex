@@ -17,6 +17,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { cn } from '@/lib/utils'
+import { useOverflowTitle } from '@/lib/useOverflowTitle'
 import { formatRate, sortingStateFromKey, sortKeyFromSortingState } from '../query'
 import type { BadgeRecord, SortKey } from '../types'
 import { BadgeImage } from './BadgeImage'
@@ -29,6 +30,40 @@ interface BadgeTableViewProps {
   onOpen: (id: string) => void
 }
 
+function BadgeNameCell({ badge }: { badge: BadgeRecord }) {
+  const nameRef = useOverflowTitle<HTMLDivElement>(badge.name)
+  const idRef = useOverflowTitle<HTMLDivElement>(badge.id)
+
+  return (
+    <div className="flex min-w-40 items-center gap-2.5">
+      <BadgeImage
+        src={badge.icon}
+        alt={badge.name}
+        className="size-8 shrink-0"
+        iconClassName="size-4"
+      />
+      <div className="min-w-0">
+        <div ref={nameRef} className="truncate font-medium text-foreground">
+          {badge.name}
+        </div>
+        <div ref={idRef} className="truncate text-xs text-muted-foreground">
+          {badge.id}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function ClampedTextCell({ text }: { text: string }) {
+  const ref = useOverflowTitle<HTMLParagraphElement>(text)
+
+  return (
+    <p ref={ref} className="line-clamp-2 max-w-72 min-w-52 text-muted-foreground">
+      {text}
+    </p>
+  )
+}
+
 export function BadgeTableView({ items, sort, onSortChange, onOpen }: BadgeTableViewProps) {
   const columns = useMemo<ColumnDef<BadgeRecord>[]>(
     () => [
@@ -37,20 +72,7 @@ export function BadgeTableView({ items, sort, onSortChange, onOpen }: BadgeTable
         accessorKey: 'name',
         header: '徽章',
         enableSorting: true,
-        cell: ({ row }) => (
-          <div className="flex min-w-40 items-center gap-2.5">
-            <BadgeImage
-              src={row.original.icon}
-              alt={row.original.name}
-              className="size-8 shrink-0"
-              iconClassName="size-4"
-            />
-            <div className="min-w-0">
-              <div className="truncate font-medium text-foreground">{row.original.name}</div>
-              <div className="truncate text-xs text-muted-foreground">{row.original.id}</div>
-            </div>
-          </div>
-        ),
+        cell: ({ row }) => <BadgeNameCell badge={row.original} />,
       },
       {
         id: 'level',
@@ -82,28 +104,14 @@ export function BadgeTableView({ items, sort, onSortChange, onOpen }: BadgeTable
         accessorKey: 'condition',
         header: '获取条件',
         enableSorting: false,
-        cell: ({ row }) => (
-          <p
-            className="line-clamp-2 max-w-72 min-w-52 text-muted-foreground"
-            title={row.original.condition}
-          >
-            {row.original.condition}
-          </p>
-        ),
+        cell: ({ row }) => <ClampedTextCell text={row.original.condition} />,
       },
       {
         id: 'attr',
         accessorKey: 'attr',
         header: '属性 / 描述',
         enableSorting: false,
-        cell: ({ row }) => (
-          <p
-            className="line-clamp-2 max-w-72 min-w-52 text-muted-foreground"
-            title={row.original.attr}
-          >
-            {row.original.attr}
-          </p>
-        ),
+        cell: ({ row }) => <ClampedTextCell text={row.original.attr} />,
       },
       {
         id: 'actions',

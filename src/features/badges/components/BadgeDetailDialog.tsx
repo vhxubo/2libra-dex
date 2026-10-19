@@ -12,6 +12,7 @@ import {
 } from '@/components/ui/dialog'
 import { formatRate } from '../query'
 import type { BadgeRecord } from '../types'
+import { useOverflowTitle } from '@/lib/useOverflowTitle'
 import { BadgeImage } from './BadgeImage'
 import { LevelChip } from './LevelChip'
 
@@ -50,6 +51,8 @@ export function BadgeDetailDialog({ open, onOpenChange, badge, badgeId }: BadgeD
   // 复制结果按徽章 ID 记录，切换徽章时自然失效，无需在 effect 中重置
   const [copyResult, setCopyResult] = useState<{ id: string; state: 'done' | 'fail' } | null>(null)
   const resetTimer = useRef<number | null>(null)
+  const nameRef = useOverflowTitle<HTMLHeadingElement>(badge?.name ?? '')
+  const idRef = useOverflowTitle<HTMLSpanElement>(badge?.id ?? '')
 
   useEffect(() => {
     return () => {
@@ -98,11 +101,15 @@ export function BadgeDetailDialog({ open, onOpenChange, badge, badgeId }: BadgeD
             <BadgeImage src={badge.icon} alt={badge.name} className="size-16" iconClassName="size-7" />
             <div className="min-w-0">
               <DialogTitle asChild>
-                <h2 className="truncate text-lg">{badge.name}</h2>
+                <h2 ref={nameRef} className="truncate text-lg">
+                  {badge.name}
+                </h2>
               </DialogTitle>
               <div className="mt-1.5 flex items-center gap-2 text-xs text-muted-foreground">
                 <LevelChip level={badge.level} />
-                <span className="truncate font-mono text-xs">{badge.id}</span>
+                <span ref={idRef} className="truncate font-mono text-xs">
+                  {badge.id}
+                </span>
               </div>
             </div>
           </div>

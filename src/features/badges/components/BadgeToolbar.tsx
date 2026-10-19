@@ -1,3 +1,4 @@
+import { useRef, useState } from 'react'
 import {
   ArrowUpDown,
   ChevronDown,
@@ -21,7 +22,6 @@ import { cn } from '@/lib/utils'
 import { ATTR_TYPE_OPTIONS } from '../data'
 import {
   BADGE_LEVELS,
-  PAGE_SIZE_OPTIONS,
   SORT_OPTIONS,
   type AttrType,
   type BadgeLevel,
@@ -35,7 +35,6 @@ interface BadgeToolbarProps {
   attrType: AttrType | null
   sort: SortKey
   view: ViewMode
-  pageSize: number
   levelCounts: Record<BadgeLevel, number>
   attrTypeCounts: Record<AttrType, number>
   onQueryChange: (q: string) => void
@@ -43,7 +42,6 @@ interface BadgeToolbarProps {
   onAttrTypeChange: (attrType: AttrType | null) => void
   onSortChange: (sort: SortKey) => void
   onViewChange: (view: ViewMode) => void
-  onPageSizeChange: (pageSize: number) => void
 }
 
 export function BadgeToolbar({
@@ -52,7 +50,6 @@ export function BadgeToolbar({
   attrType,
   sort,
   view,
-  pageSize,
   levelCounts,
   attrTypeCounts,
   onQueryChange,
@@ -60,7 +57,6 @@ export function BadgeToolbar({
   onAttrTypeChange,
   onSortChange,
   onViewChange,
-  onPageSizeChange,
 }: BadgeToolbarProps) {
   const activeLevelSummary =
     levels.length === 0
@@ -69,7 +65,27 @@ export function BadgeToolbar({
         ? levels[0]
         : `${levels[0]} 等 ${levels.length} 项`
   const currentSortLabel =
-    SORT_OPTIONS.find((option) => option.value === sort)?.label ?? '默认排序'
+    SORT_OPTIONS.find((option) => option.value === sort)?.label ?? '获得率从高到低'
+
+  // 输入框用本地草稿值，避免每次按键都走 URL 往返打断输入法组合；
+  // 组合期间（双拼/全拼的拼音过程）不上报，组合结束后才提交最终文字
+  const [queryDraft, setQueryDraft] = useState(q)
+  const [syncedQ, setSyncedQ] = useState(q)
+  const isComposingRef = useRef(false)
+  const lastCommittedRef = useRef(q)
+
+  // 外部 q 变化（如清空筛选）时回同步到输入框
+  if (q !== syncedQ) {
+    setSyncedQ(q)
+    setQueryDraft(q)
+  }
+
+  const commitQuery = (value: string) => {
+    if (value !== lastCommittedRef.current) {
+      lastCommittedRef.current = value
+      onQueryChange(value)
+    }
+  }
 
   return (
     <div className="flex flex-col gap-2">
@@ -81,8 +97,20 @@ export function BadgeToolbar({
           />
           <Input
             type="search"
-            value={q}
-            onChange={(event) => onQueryChange(event.target.value)}
+            value={queryDraft}
+            onChange={(event) => {
+              setQueryDraft(event.target.value)
+              if (!isComposingRef.current) {
+                commitQuery(event.target.value)
+              }
+            }}
+            onCompositionStart={() => {
+              isComposingRef.current = true
+            }}
+            onCompositionEnd={(event) => {
+              isComposingRef.current = false
+              commitQuery(event.currentTarget.value)
+            }}
             placeholder="搜索名称、ID、获取条件或属性"
             aria-label="搜索徽章"
             className="pl-9"
@@ -159,27 +187,6 @@ export function BadgeToolbar({
                 {SORT_OPTIONS.map((option) => (
                   <DropdownMenuRadioItem key={option.value} value={option.value}>
                     {option.label}
-                  </DropdownMenuRadioItem>
-                ))}
-              </DropdownMenuRadioGroup>
-            </DropdownMenuContent>
-          </DropdownMenu>
-
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" className="gap-1.5">
-                {pageSize} 条 / 页
-                <ChevronDown className="opacity-60" aria-hidden />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuRadioGroup
-                value={String(pageSize)}
-                onValueChange={(value) => onPageSizeChange(Number(value))}
-              >
-                {PAGE_SIZE_OPTIONS.map((option) => (
-                  <DropdownMenuRadioItem key={option} value={String(option)}>
-                    {option} 条 / 页
                   </DropdownMenuRadioItem>
                 ))}
               </DropdownMenuRadioGroup>

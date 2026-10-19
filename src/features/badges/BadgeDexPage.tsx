@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
-import { SearchX, X } from 'lucide-react'
+import { Link, useSearchParams } from 'react-router-dom'
+import { Database, SearchX, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Pagination } from '@/components/Pagination'
 import { BadgeCard } from './components/BadgeCard'
@@ -14,6 +14,7 @@ import {
   LEVEL_COUNTS,
 } from './data'
 import { filterBadges, sortBadges } from './query'
+import { useOverflowTitle } from '@/lib/useOverflowTitle'
 import {
   badgeStateToSearchParams,
   DEFAULT_URL_STATE,
@@ -62,6 +63,16 @@ interface FilterChipsProps {
   onClearAll: () => void
 }
 
+function ChipLabel({ label }: { label: string }) {
+  const ref = useOverflowTitle<HTMLSpanElement>(label)
+
+  return (
+    <span ref={ref} className="min-w-0 truncate">
+      {label}
+    </span>
+  )
+}
+
 function FilterChips({ state, onRemove, onClearAll }: FilterChipsProps) {
   const chips: { key: string; label: string; remove: () => void }[] = []
 
@@ -97,7 +108,7 @@ function FilterChips({ state, onRemove, onClearAll }: FilterChipsProps) {
           key={chip.key}
           className="inline-flex min-w-0 max-w-full items-center gap-1 rounded-full border border-border bg-card py-1 pl-2.5 pr-1 text-xs text-muted-foreground"
         >
-          <span className="min-w-0 truncate">{chip.label}</span>
+          <ChipLabel label={chip.label} />
           <button
             type="button"
             onClick={chip.remove}
@@ -195,8 +206,15 @@ export default function BadgeDexPage() {
     <div className="mx-auto w-full max-w-6xl px-4 py-6 sm:py-8">
       <header className="mb-5">
         <h1 className="text-xl font-bold tracking-tight sm:text-2xl">徽章图鉴</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          已收录 {BADGE_COUNT} 枚徽章，数据来自已采集记录，不构成完整官方图鉴。
+        <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1.5 text-sm text-muted-foreground">
+          <span>已收录 {BADGE_COUNT} 枚徽章，不构成完整官方图鉴。</span>
+          <Link
+            to="/sources"
+            className="inline-flex items-center gap-1 whitespace-nowrap rounded-full border border-border bg-muted px-2 py-0.5 text-xs font-medium text-foreground transition-colors hover:border-primary/50 hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+          >
+            <Database className="size-3.5" aria-hidden />
+            数据来源
+          </Link>
         </p>
       </header>
 
@@ -206,7 +224,6 @@ export default function BadgeDexPage() {
         attrType={state.attrType}
         sort={state.sort}
         view={state.view}
-        pageSize={pageSize}
         levelCounts={LEVEL_COUNTS}
         attrTypeCounts={ATTR_TYPE_COUNTS}
         onQueryChange={handleQueryChange}
@@ -214,7 +231,6 @@ export default function BadgeDexPage() {
         onAttrTypeChange={handleAttrTypeChange}
         onSortChange={handleSortChange}
         onViewChange={handleViewChange}
-        onPageSizeChange={handlePageSizeChange}
       />
 
       <div className="mt-4 flex flex-wrap items-center gap-2">
@@ -256,6 +272,9 @@ export default function BadgeDexPage() {
             page={currentPage}
             totalPages={totalPages}
             onPageChange={(page) => update({ page })}
+            pageSize={pageSize}
+            pageSizeOptions={PAGE_SIZE_OPTIONS}
+            onPageSizeChange={handlePageSizeChange}
           />
         </div>
       )}

@@ -1,5 +1,6 @@
 import type { SortingState } from '@tanstack/react-table'
 import type { AttrType, BadgeLevel, BadgeRecord, SortKey } from './types'
+import { DEFAULT_SORT_KEY } from './types'
 
 export interface BadgeFilters {
   /** 原始搜索文本（未去除空白），匹配时统一归一化 */
@@ -47,7 +48,7 @@ function compareById(a: BadgeRecord, b: BadgeRecord): number {
 }
 
 const SORT_COMPARATORS: Record<
-  Exclude<SortKey, 'default'>,
+  SortKey,
   (a: BadgeRecord, b: BadgeRecord) => number
 > = {
   'rate-asc': (a, b) => a.rate - b.rate || compareById(a, b),
@@ -56,9 +57,8 @@ const SORT_COMPARATORS: Record<
   'name-desc': (a, b) => b.name.localeCompare(a.name, 'zh-Hans-CN') || compareById(a, b),
 }
 
-/** 排序；default 沿用数据中等级与获得率的顺序，同值以 ID 稳定排序。 */
+/** 排序；同值以 ID 稳定排序。 */
 export function sortBadges(badges: BadgeRecord[], sort: SortKey): BadgeRecord[] {
-  if (sort === 'default') return [...badges]
   return [...badges].sort(SORT_COMPARATORS[sort])
 }
 
@@ -84,8 +84,8 @@ export function sortingStateFromKey(sort: SortKey): SortingState {
 /** 表格视图：把表头排序状态映射回全局排序键（清除排序回到默认）。 */
 export function sortKeyFromSortingState(sorting: SortingState): SortKey {
   const first = sorting[0]
-  if (!first) return 'default'
+  if (!first) return DEFAULT_SORT_KEY
   const keys = SORT_KEY_BY_COLUMN[first.id]
-  if (!keys) return 'default'
+  if (!keys) return DEFAULT_SORT_KEY
   return first.desc ? keys.desc : keys.asc
 }

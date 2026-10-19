@@ -1,6 +1,7 @@
 import {
   ATTR_TYPES,
   BADGE_LEVELS,
+  DEFAULT_SORT_KEY,
   SORT_OPTIONS,
   type AttrType,
   type BadgeLevel,
@@ -23,7 +24,7 @@ export const DEFAULT_URL_STATE: BadgeUrlState = {
   q: '',
   levels: [],
   attrType: null,
-  sort: 'default',
+  sort: DEFAULT_SORT_KEY,
   view: 'card',
   page: 1,
   badgeId: null,
@@ -55,7 +56,7 @@ export function parseBadgeSearchParams(params: URLSearchParams): BadgeUrlState {
     q: params.get('q') ?? '',
     levels: parseLevelsParam(params.get('level')),
     attrType: ATTR_TYPES.find((attrType) => params.get('attr') === attrType) ?? null,
-    sort: SORT_VALUES.includes(sortRaw as SortKey) ? (sortRaw as SortKey) : 'default',
+    sort: SORT_VALUES.includes(sortRaw as SortKey) ? (sortRaw as SortKey) : DEFAULT_SORT_KEY,
     view: params.get('view') === 'table' ? 'table' : 'card',
     page: Number.isInteger(page) && page >= 1 ? page : 1,
     badgeId: params.get('badge')?.trim() || null,
@@ -68,7 +69,7 @@ export function badgeStateToSearchParams(state: BadgeUrlState): URLSearchParams 
   if (state.q.trim()) params.set('q', state.q)
   if (state.levels.length > 0) params.set('level', state.levels.join(','))
   if (state.attrType !== null) params.set('attr', state.attrType)
-  if (state.sort !== 'default') params.set('sort', state.sort)
+  if (state.sort !== DEFAULT_SORT_KEY) params.set('sort', state.sort)
   if (state.view !== 'card') params.set('view', state.view)
   if (state.page > 1) params.set('page', String(state.page))
   if (state.badgeId !== null) params.set('badge', state.badgeId)

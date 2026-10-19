@@ -42,12 +42,14 @@ describe('BadgeDexPage', () => {
   it('点击卡片打开详情弹窗，展示条件与属性，可关闭', async () => {
     const user = userEvent.setup()
     renderPage()
-    const cards = screen.getAllByTestId('badge-card')
 
-    await user.click(within(cards[0]).getByRole('button', { name: '查看 篝火 详情' }))
+    // 默认按获得率从高到低排序，首页第一张是「2Libra 一周年！」；卡片本身即按钮
+    await user.click(screen.getByRole('button', { name: '查看 2Libra 一周年！ 详情' }))
     const dialog = screen.getByRole('dialog')
-    expect(within(dialog).getByText('被关注人数达到 99 人。')).toBeInTheDocument()
-    expect(within(dialog).getByText('0.01%')).toBeInTheDocument()
+    expect(
+      within(dialog).getByText('2026 年 8 月 26 日（含）发布过一篇帖子或一条评论的用户。'),
+    ).toBeInTheDocument()
+    expect(within(dialog).getByText('29.92%')).toBeInTheDocument()
     expect(within(dialog).getByRole('button', { name: '复制详情链接' })).toBeInTheDocument()
 
     await user.click(within(dialog).getByRole('button', { name: '关闭' }))
@@ -100,7 +102,7 @@ describe('BadgeDexPage', () => {
     const first = renderPage()
     await user.click(screen.getByRole('button', { name: '下一页' }))
     expect(screen.getByTestId('page-status').textContent).toBe('第 2 / 3 页')
-    expect(getCardNames()[0]).toBe('卡皮巴拉')
+    expect(getCardNames()[0]).toBe('幸运儿')
     first.unmount()
 
     renderPage('/badges?page=999')

@@ -26,7 +26,7 @@ describe('徽章数据', () => {
     }
   })
 
-  it('数据按等级与获得率排序（默认排序的依据）', () => {
+  it('数据按等级与获得率排序（采集顺序约定）', () => {
     const order = { T0: 0, T1: 1, T2: 2, T3: 3 } as const
     for (let i = 1; i < BADGES.length; i += 1) {
       const prev = BADGES[i - 1]

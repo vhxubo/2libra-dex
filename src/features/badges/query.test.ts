@@ -83,12 +83,6 @@ describe('filterBadges', () => {
 })
 
 describe('sortBadges', () => {
-  it('默认排序沿用数据中等级与获得率顺序', () => {
-    expect(sortBadges(BADGES, 'default').map((badge) => badge.id)).toEqual(
-      BADGES.map((badge) => badge.id),
-    )
-  })
-
   it('获得率升序，同获得率以 ID 稳定排序', () => {
     const result = sortBadges(BADGES, 'rate-asc')
     expect(result[0].id).toBe('followers')
@@ -144,13 +138,13 @@ describe('formatRate', () => {
 
 describe('表格排序状态映射', () => {
   it('SortKey 与 TanStack SortingState 双向转换', () => {
-    for (const key of ['default', 'rate-asc', 'rate-desc', 'name-asc', 'name-desc'] as const) {
+    for (const key of ['rate-desc', 'rate-asc', 'name-asc', 'name-desc'] as const) {
       expect(sortKeyFromSortingState(sortingStateFromKey(key))).toBe(key)
     }
   })
 
-  it('空排序状态映射回默认排序', () => {
-    expect(sortKeyFromSortingState([])).toBe('default')
-    expect(sortKeyFromSortingState([{ id: 'unknown', desc: true }])).toBe('default')
+  it('空排序状态映射回默认排序（获得率从高到低）', () => {
+    expect(sortKeyFromSortingState([])).toBe('rate-desc')
+    expect(sortKeyFromSortingState([{ id: 'unknown', desc: true }])).toBe('rate-desc')
   })
 })
