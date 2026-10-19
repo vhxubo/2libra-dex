@@ -109,14 +109,14 @@ function FilterChips({ state, onRemove, onClearAll }: FilterChipsProps) {
       {chips.map((chip) => (
         <span
           key={chip.key}
-          className="inline-flex items-center gap-1 rounded-full border border-border bg-card py-1 pl-2.5 pr-1 text-xs text-muted-foreground"
+          className="inline-flex min-w-0 max-w-full items-center gap-1 rounded-full border border-border bg-card py-1 pl-2.5 pr-1 text-xs text-muted-foreground"
         >
-          {chip.label}
+          <span className="min-w-0 truncate">{chip.label}</span>
           <button
             type="button"
             onClick={chip.remove}
             aria-label={`移除筛选条件:${chip.label}`}
-            className="rounded-full p-0.5 transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="shrink-0 rounded-full p-0.5 transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             <X className="size-3" aria-hidden />
           </button>
@@ -242,7 +242,7 @@ export default function BadgeDexPage() {
       />
 
       <div className="mt-4 flex flex-wrap items-center gap-2">
-        <p data-testid="result-count" className="text-sm text-muted-foreground" aria-live="polite">
+        <p data-testid="result-count" className="shrink-0 whitespace-nowrap text-sm text-muted-foreground" aria-live="polite">
           共 <span className="font-semibold tabular-nums text-foreground">{sorted.length}</span> 枚徽章
         </p>
         <FilterChips

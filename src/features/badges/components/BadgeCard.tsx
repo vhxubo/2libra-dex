@@ -24,8 +24,8 @@ export function BadgeCard({ badge, onOpen }: BadgeCardProps) {
         <div className="min-w-0 flex-1">
           <h3 className="truncate text-base font-semibold">{badge.name}</h3>
           <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
-            <LevelChip level={badge.level} />
-            <span>
+            <LevelChip level={badge.level} className="shrink-0" />
+            <span className="whitespace-nowrap">
               获得率{' '}
               <span className="font-semibold tabular-nums text-foreground">
                 {formatRate(badge.rate)}

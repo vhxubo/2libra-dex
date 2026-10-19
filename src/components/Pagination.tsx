@@ -24,7 +24,7 @@ function getPageItems(page: number, total: number): (number | '…')[] {
 export function Pagination({ page, totalPages, onPageChange }: PaginationProps) {
   return (
     <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2">
-      <p data-testid="page-status" className="text-sm tabular-nums text-muted-foreground">
+      <p data-testid="page-status" className="whitespace-nowrap text-sm tabular-nums text-muted-foreground">
         第 <span className="font-medium text-foreground">{page}</span> / {totalPages} 页
       </p>
       <nav aria-label="分页" className="flex items-center gap-1">

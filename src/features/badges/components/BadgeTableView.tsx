@@ -42,7 +42,7 @@ export function BadgeTableView({ items, sort, onSortChange, onOpen }: BadgeTable
             <BadgeImage
               src={row.original.icon}
               alt={row.original.name}
-              className="size-8"
+              className="size-8 shrink-0"
               iconClassName="size-4"
             />
             <div className="min-w-0">
