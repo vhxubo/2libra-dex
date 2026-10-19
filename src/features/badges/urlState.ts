@@ -13,8 +13,6 @@ export interface BadgeUrlState {
   q: string
   levels: BadgeLevel[]
   attrType: AttrType | null
-  rateMin: number | null
-  rateMax: number | null
   sort: SortKey
   view: ViewMode
   page: number
@@ -25,8 +23,6 @@ export const DEFAULT_URL_STATE: BadgeUrlState = {
   q: '',
   levels: [],
   attrType: null,
-  rateMin: null,
-  rateMax: null,
   sort: 'default',
   view: 'card',
   page: 1,
@@ -34,14 +30,7 @@ export const DEFAULT_URL_STATE: BadgeUrlState = {
 }
 
 const SORT_VALUES: readonly string[] = SORT_OPTIONS.map((option) => option.value)
-const RATE_PATTERN = /^\d+(\.\d+)?$/
 const PAGE_PATTERN = /^\d+$/
-
-function parseRateParam(raw: string | null): number | null {
-  if (raw === null || !RATE_PATTERN.test(raw)) return null
-  const value = Number(raw)
-  return value >= 0 && value <= 100 ? value : null
-}
 
 function parseLevelsParam(raw: string | null): BadgeLevel[] {
   if (raw === null) return []
@@ -66,8 +55,6 @@ export function parseBadgeSearchParams(params: URLSearchParams): BadgeUrlState {
     q: params.get('q') ?? '',
     levels: parseLevelsParam(params.get('level')),
     attrType: ATTR_TYPES.find((attrType) => params.get('attr') === attrType) ?? null,
-    rateMin: parseRateParam(params.get('min')),
-    rateMax: parseRateParam(params.get('max')),
     sort: SORT_VALUES.includes(sortRaw as SortKey) ? (sortRaw as SortKey) : 'default',
     view: params.get('view') === 'table' ? 'table' : 'card',
     page: Number.isInteger(page) && page >= 1 ? page : 1,
@@ -81,8 +68,6 @@ export function badgeStateToSearchParams(state: BadgeUrlState): URLSearchParams 
   if (state.q.trim()) params.set('q', state.q)
   if (state.levels.length > 0) params.set('level', state.levels.join(','))
   if (state.attrType !== null) params.set('attr', state.attrType)
-  if (state.rateMin !== null) params.set('min', String(state.rateMin))
-  if (state.rateMax !== null) params.set('max', String(state.rateMax))
   if (state.sort !== 'default') params.set('sort', state.sort)
   if (state.view !== 'card') params.set('view', state.view)
   if (state.page > 1) params.set('page', String(state.page))

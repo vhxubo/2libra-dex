@@ -17,14 +17,12 @@ describe('parseBadgeSearchParams', () => {
 
   it('解析全部合法参数', () => {
     const state = parse(
-      '?q=篝火&level=T0,T2&attr=佩戴属性&min=5&max=20&sort=rate-desc&view=table&page=3&badge=followers',
+      '?q=篝火&level=T0,T2&attr=佩戴属性&sort=rate-desc&view=table&page=3&badge=followers',
     )
     expect(state).toEqual({
       q: '篝火',
       levels: ['T0', 'T2'],
       attrType: '佩戴属性',
-      rateMin: 5,
-      rateMax: 20,
       sort: 'rate-desc',
       view: 'table',
       page: 3,
@@ -43,14 +41,6 @@ describe('parseBadgeSearchParams', () => {
     expect(parse('?page=0').page).toBe(1)
     expect(parse('?page=abc').page).toBe(1)
     expect(parse('?page=-3').page).toBe(1)
-  })
-
-  it('获得率限制在 0–100，非法恢复默认', () => {
-    expect(parse('?min=0').rateMin).toBe(0)
-    expect(parse('?max=100').rateMax).toBe(100)
-    expect(parse('?min=abc').rateMin).toBeNull()
-    expect(parse('?min=-5').rateMin).toBeNull()
-    expect(parse('?max=200').rateMax).toBeNull()
   })
 
   it('非法属性类型恢复默认', () => {
@@ -75,7 +65,7 @@ describe('badgeStateToSearchParams', () => {
 
   it('解析-序列化-再解析保持一致', () => {
     const query =
-      '?q=篝火&level=T0,T2&attr=佩戴属性&min=5&max=20&sort=rate-desc&view=table&page=3&badge=followers'
+      '?q=篝火&level=T0,T2&attr=佩戴属性&sort=rate-desc&view=table&page=3&badge=followers'
     const once = parse(query)
     const params = badgeStateToSearchParams(once)
     expect(parse(`?${params.toString()}`)).toEqual(once)

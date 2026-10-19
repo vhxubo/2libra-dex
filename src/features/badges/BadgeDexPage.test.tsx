@@ -95,23 +95,6 @@ describe('BadgeDexPage', () => {
     await user.keyboard('{Escape}')
   })
 
-  it('获得率区间包含边界，非法输入显示提示', () => {
-    renderPage()
-    const minInput = screen.getByRole('textbox', { name: '获得率最小值' })
-    const maxInput = screen.getByRole('textbox', { name: '获得率最大值' })
-
-    fireEvent.change(minInput, { target: { value: '0.06' } })
-    fireEvent.change(maxInput, { target: { value: '0.06' } })
-    expect(screen.getByTestId('result-count').textContent).toContain('2')
-
-    fireEvent.change(minInput, { target: { value: 'abc' } })
-    expect(screen.getByRole('alert').textContent).toContain('0–100')
-
-    fireEvent.change(minInput, { target: { value: '20' } })
-    fireEvent.change(maxInput, { target: { value: '1' } })
-    expect(screen.getByRole('alert').textContent).toContain('最小值不能大于最大值')
-  })
-
   it('分页翻页与 URL 页码超界回正', async () => {
     const user = userEvent.setup()
     const first = renderPage()

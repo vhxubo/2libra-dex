@@ -6,7 +6,6 @@ import {
   formatRate,
   matchesQuery,
   normalizeQuery,
-  parseRateInput,
   sortBadges,
   sortKeyFromSortingState,
   sortingStateFromKey,
@@ -72,28 +71,11 @@ describe('filterBadges', () => {
     expect(attr.every((badge) => badge.attrType === '佩戴属性')).toBe(true)
   })
 
-  it('获得率区间包含边界', () => {
-    const result = filterBadges(BADGES, { ...EMPTY_FILTERS, rateMin: 0.06, rateMax: 0.06 })
-    expect(result.map((badge) => badge.id).sort()).toEqual(['rich', 'year_streak'])
-  })
-
-  it('获得率上下限同时生效', () => {
-    const result = filterBadges(BADGES, { ...EMPTY_FILTERS, rateMin: 3, rateMax: 10 })
-    expect(result.every((badge) => badge.rate >= 3 && badge.rate <= 10)).toBe(true)
-    expect(result.length).toBeGreaterThan(0)
-  })
-
-  it('最小值大于最大值时结果为空', () => {
-    expect(filterBadges(BADGES, { ...EMPTY_FILTERS, rateMin: 10, rateMax: 1 })).toHaveLength(0)
-  })
-
   it('多条件组合取交集', () => {
     const result = filterBadges(BADGES, {
       q: '签到',
       levels: ['T0'],
       attrType: '佩戴属性',
-      rateMin: 0,
-      rateMax: 5,
     })
     expect(result.every((badge) => badge.level === 'T0' && badge.attrType === '佩戴属性')).toBe(true)
     expect(result.length).toBeGreaterThan(0)
@@ -157,27 +139,6 @@ describe('formatRate', () => {
     expect(formatRate(3.36)).toBe('3.36%')
     expect(formatRate(29.92)).toBe('29.92%')
     expect(formatRate(100)).toBe('100%')
-  })
-})
-
-describe('parseRateInput', () => {
-  it('空值合法，表示不限制', () => {
-    expect(parseRateInput('')).toEqual({ value: null, error: null })
-    expect(parseRateInput('  ')).toEqual({ value: null, error: null })
-  })
-
-  it('0 与 100 边界合法', () => {
-    expect(parseRateInput('0')).toEqual({ value: 0, error: null })
-    expect(parseRateInput('100')).toEqual({ value: 100, error: null })
-    expect(parseRateInput('5.5')).toEqual({ value: 5.5, error: null })
-  })
-
-  it('非法输入给出提示', () => {
-    expect(parseRateInput('abc')?.error).toBeTruthy()
-    expect(parseRateInput('-1')?.error).toBeTruthy()
-    expect(parseRateInput('101')?.error).toBeTruthy()
-    expect(parseRateInput('1e2')?.error).toBeTruthy()
-    expect(parseRateInput('12.')).toEqual({ value: null, error: '请输入 0–100 之间的数字' })
   })
 })
 

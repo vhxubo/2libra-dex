@@ -13,7 +13,7 @@ import {
   BADGE_COUNT,
   LEVEL_COUNTS,
 } from './data'
-import { filterBadges, formatRate, sortBadges } from './query'
+import { filterBadges, sortBadges } from './query'
 import {
   badgeStateToSearchParams,
   DEFAULT_URL_STATE,
@@ -87,20 +87,6 @@ function FilterChips({ state, onRemove, onClearAll }: FilterChipsProps) {
       remove: () => onRemove({ attrType: null }),
     })
   }
-  if (state.rateMin !== null) {
-    chips.push({
-      key: 'min',
-      label: `获得率 ≥ ${formatRate(state.rateMin)}`,
-      remove: () => onRemove({ rateMin: null }),
-    })
-  }
-  if (state.rateMax !== null) {
-    chips.push({
-      key: 'max',
-      label: `获得率 ≤ ${formatRate(state.rateMax)}`,
-      remove: () => onRemove({ rateMax: null }),
-    })
-  }
 
   if (chips.length === 0) return null
 
@@ -139,10 +125,8 @@ export default function BadgeDexPage() {
         q: state.q,
         levels: state.levels,
         attrType: state.attrType,
-        rateMin: state.rateMin,
-        rateMax: state.rateMax,
       }),
-    [state.q, state.levels, state.attrType, state.rateMin, state.rateMax],
+    [state.q, state.levels, state.attrType],
   )
   const sorted = useMemo(
     () => sortBadges(filtered, state.sort),
@@ -183,11 +167,6 @@ export default function BadgeDexPage() {
     (attrType: AttrType | null) => update({ attrType, page: 1 }),
     [update],
   )
-  const handleRateRangeChange = useCallback(
-    (rateMin: number | null, rateMax: number | null) =>
-      update({ rateMin, rateMax, page: 1 }, true),
-    [update],
-  )
   const handleSortChange = useCallback(
     (sort: SortKey) => update({ sort, page: 1 }),
     [update],
@@ -225,8 +204,6 @@ export default function BadgeDexPage() {
         q={state.q}
         levels={state.levels}
         attrType={state.attrType}
-        rateMin={state.rateMin}
-        rateMax={state.rateMax}
         sort={state.sort}
         view={state.view}
         pageSize={pageSize}
@@ -235,7 +212,6 @@ export default function BadgeDexPage() {
         onQueryChange={handleQueryChange}
         onToggleLevel={handleToggleLevel}
         onAttrTypeChange={handleAttrTypeChange}
-        onRateRangeChange={handleRateRangeChange}
         onSortChange={handleSortChange}
         onViewChange={handleViewChange}
         onPageSizeChange={handlePageSizeChange}

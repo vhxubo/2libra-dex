@@ -8,18 +8,12 @@ export interface BadgeFilters {
   levels: BadgeLevel[]
   /** 属性类型，null 表示全部 */
   attrType: AttrType | null
-  /** 获得率最小值（含边界），null 表示不限 */
-  rateMin: number | null
-  /** 获得率最大值（含边界），null 表示不限 */
-  rateMax: number | null
 }
 
 export const EMPTY_FILTERS: BadgeFilters = {
   q: '',
   levels: [],
   attrType: null,
-  rateMin: null,
-  rateMax: null,
 }
 
 /** 搜索文本归一化：去除首尾空白、忽略大小写、按空白拆分关键词。 */
@@ -38,14 +32,12 @@ export function matchesQuery(badge: BadgeRecord, rawQuery: string): boolean {
   return normalizeQuery(rawQuery).every((keyword) => haystack.includes(keyword))
 }
 
-/** 各筛选条件取交集；获得率区间包含边界。 */
+/** 各筛选条件取交集。 */
 export function filterBadges(badges: BadgeRecord[], filters: BadgeFilters): BadgeRecord[] {
   return badges.filter(
     (badge) =>
       (filters.levels.length === 0 || filters.levels.includes(badge.level)) &&
       (filters.attrType === null || badge.attrType === filters.attrType) &&
-      (filters.rateMin === null || badge.rate >= filters.rateMin) &&
-      (filters.rateMax === null || badge.rate <= filters.rateMax) &&
       matchesQuery(badge, filters.q),
   )
 }
@@ -73,25 +65,6 @@ export function sortBadges(badges: BadgeRecord[], sort: SortKey): BadgeRecord[] 
 /** 获得率显示：直接添加 %，例如 0.01 -> 0.01%。 */
 export function formatRate(rate: number): string {
   return `${rate}%`
-}
-
-export interface ParsedRateInput {
-  value: number | null
-  error: string | null
-}
-
-/** 解析获得率输入：空值合法（表示不限）；须为 0–100 的数字，否则给出提示。 */
-export function parseRateInput(raw: string): ParsedRateInput {
-  const text = raw.trim()
-  if (text === '') return { value: null, error: null }
-  if (!/^\d+(\.\d+)?$/.test(text)) {
-    return { value: null, error: '请输入 0–100 之间的数字' }
-  }
-  const value = Number(text)
-  if (value > 100) {
-    return { value: null, error: '获得率范围是 0–100' }
-  }
-  return { value, error: null }
 }
 
 const SORT_KEY_BY_COLUMN: Record<string, { asc: SortKey; desc: SortKey }> = {

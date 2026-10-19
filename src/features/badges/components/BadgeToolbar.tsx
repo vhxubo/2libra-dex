@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import {
   ArrowUpDown,
   ChevronDown,
@@ -19,7 +18,6 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { cn } from '@/lib/utils'
-import { parseRateInput, type ParsedRateInput } from '../query'
 import { ATTR_TYPE_OPTIONS } from '../data'
 import {
   BADGE_LEVELS,
@@ -35,8 +33,6 @@ interface BadgeToolbarProps {
   q: string
   levels: BadgeLevel[]
   attrType: AttrType | null
-  rateMin: number | null
-  rateMax: number | null
   sort: SortKey
   view: ViewMode
   pageSize: number
@@ -45,22 +41,15 @@ interface BadgeToolbarProps {
   onQueryChange: (q: string) => void
   onToggleLevel: (level: BadgeLevel) => void
   onAttrTypeChange: (attrType: AttrType | null) => void
-  onRateRangeChange: (min: number | null, max: number | null) => void
   onSortChange: (sort: SortKey) => void
   onViewChange: (view: ViewMode) => void
   onPageSizeChange: (pageSize: number) => void
-}
-
-function rateText(value: number | null): string {
-  return value === null ? '' : String(value)
 }
 
 export function BadgeToolbar({
   q,
   levels,
   attrType,
-  rateMin,
-  rateMax,
   sort,
   view,
   pageSize,
@@ -69,55 +58,10 @@ export function BadgeToolbar({
   onQueryChange,
   onToggleLevel,
   onAttrTypeChange,
-  onRateRangeChange,
   onSortChange,
   onViewChange,
   onPageSizeChange,
 }: BadgeToolbarProps) {
-  // 输入草稿跟随外部生效值；用户正在输入时先写草稿，仅在生效值变化时重置（React 官方推荐的渲染期调整模式）
-  const [minDraft, setMinDraft] = useState(() => rateText(rateMin))
-  const [maxDraft, setMaxDraft] = useState(() => rateText(rateMax))
-  const [appliedMin, setAppliedMin] = useState(rateMin)
-  const [appliedMax, setAppliedMax] = useState(rateMax)
-
-  if (appliedMin !== rateMin) {
-    setAppliedMin(rateMin)
-    setMinDraft(rateText(rateMin))
-  }
-  if (appliedMax !== rateMax) {
-    setAppliedMax(rateMax)
-    setMaxDraft(rateText(rateMax))
-  }
-
-  const minParsed: ParsedRateInput = parseRateInput(minDraft)
-  const maxParsed: ParsedRateInput = parseRateInput(maxDraft)
-
-  // 两侧均合法时才提交到 URL；非法输入仅提示，不覆盖已生效的筛选
-  const rangeError =
-    minParsed.error ??
-    maxParsed.error ??
-    (minParsed.value !== null &&
-    maxParsed.value !== null &&
-    minParsed.value > maxParsed.value
-      ? '最小值不能大于最大值'
-      : null)
-
-  function handleMinChange(text: string) {
-    setMinDraft(text)
-    const parsed = parseRateInput(text)
-    if (parsed.error === null && maxParsed.error === null) {
-      onRateRangeChange(parsed.value, maxParsed.value)
-    }
-  }
-
-  function handleMaxChange(text: string) {
-    setMaxDraft(text)
-    const parsed = parseRateInput(text)
-    if (minParsed.error === null && parsed.error === null) {
-      onRateRangeChange(minParsed.value, parsed.value)
-    }
-  }
-
   const activeLevelSummary =
     levels.length === 0
       ? '全部'
@@ -198,28 +142,6 @@ export function BadgeToolbar({
           </DropdownMenuContent>
         </DropdownMenu>
 
-        <div className="flex items-center gap-1.5">
-          <Input
-            value={minDraft}
-            onChange={(event) => handleMinChange(event.target.value)}
-            inputMode="decimal"
-            placeholder="最小 %"
-            aria-label="获得率最小值"
-            className="h-8 w-24 text-xs"
-          />
-          <span aria-hidden className="text-muted-foreground">
-            –
-          </span>
-          <Input
-            value={maxDraft}
-            onChange={(event) => handleMaxChange(event.target.value)}
-            inputMode="decimal"
-            placeholder="最大 %"
-            aria-label="获得率最大值"
-            className="h-8 w-24 text-xs"
-          />
-        </div>
-
         <div className="ms-auto flex flex-wrap items-center gap-2">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -294,12 +216,6 @@ export function BadgeToolbar({
           </div>
         </div>
       </div>
-
-      {rangeError !== null && (
-        <p role="alert" className="text-xs text-destructive">
-          获得率筛选:{rangeError}
-        </p>
-      )}
     </div>
   )
 }
