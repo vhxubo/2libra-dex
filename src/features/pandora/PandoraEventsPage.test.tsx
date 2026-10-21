@@ -22,14 +22,14 @@ function getEventRows() {
 }
 
 describe('PandoraEventsPage', () => {
-  it('默认按名称合并为 13 组，按组内最高稀有度从高到低排列', () => {
+  it('默认按名称合并为 14 组，按组内最高稀有度从高到低排列', () => {
     renderPage()
-    expect(screen.getByTestId('result-count').textContent).toContain('13')
+    expect(screen.getByTestId('result-count').textContent).toContain('14')
     expect(screen.getByTestId('result-count').textContent).toContain(String(PANDORA_EVENT_COUNT))
     const rows = getGroupRows()
-    expect(rows).toHaveLength(13)
-    // 最新且最高为紫色的「动起来！」组排首位，唯一青铜组「回归起点」排末位
-    expect(rows[0].textContent).toContain('动起来！')
+    expect(rows).toHaveLength(14)
+    // 最新且最高为紫色的「关键输出」组排首位，唯一青铜组「回归起点」排末位
+    expect(rows[0].textContent).toContain('关键输出')
     expect(within(rows[0]).getByText('紫色')).toBeInTheDocument()
     expect(rows[rows.length - 1].textContent).toContain('回归起点')
   })
@@ -123,7 +123,7 @@ describe('PandoraEventsPage', () => {
     expect(screen.queryAllByTestId('pandora-group-row')).toHaveLength(0)
 
     await user.click(screen.getByRole('button', { name: '清空搜索' }))
-    expect(getGroupRows()).toHaveLength(13)
+    expect(getGroupRows()).toHaveLength(14)
     expect(screen.getByTestId('result-count').textContent).toContain(
       String(PANDORA_EVENT_COUNT),
     )

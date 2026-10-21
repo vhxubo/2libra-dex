@@ -3,9 +3,9 @@ import { PANDORA_EVENT_COUNT, PANDORA_EVENTS, RARITY_COUNTS, TIER_CODES } from '
 import { RARITIES } from './types'
 
 describe('pandora 数据接入', () => {
-  it('内容完全重复的记录去重后共 21 条', () => {
-    expect(PANDORA_EVENT_COUNT).toBe(21)
-    expect(PANDORA_EVENTS).toHaveLength(21)
+  it('内容完全重复的记录去重后共 22 条', () => {
+    expect(PANDORA_EVENT_COUNT).toBe(22)
+    expect(PANDORA_EVENTS).toHaveLength(22)
   })
 
   it('内容字段完全一致的事件至多一条', () => {
@@ -29,7 +29,7 @@ describe('pandora 数据接入', () => {
   })
 
   it('稀有度计数与总数一致', () => {
-    expect(RARITY_COUNTS).toEqual({ bronze: 6, silver: 4, gold: 4, purple: 7 })
+    expect(RARITY_COUNTS).toEqual({ bronze: 6, silver: 4, gold: 4, purple: 8 })
   })
 
   it('采集顺序为时间从新到旧', () => {

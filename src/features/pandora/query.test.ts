@@ -97,9 +97,9 @@ describe('matchesQuery', () => {
 })
 
 describe('filterEvents', () => {
-  it('空白搜索词返回去重后的全部 21 条', () => {
-    expect(filterEvents(PANDORA_EVENTS, '')).toHaveLength(21)
-    expect(filterEvents(PANDORA_EVENTS, '   ')).toHaveLength(21)
+  it('空白搜索词返回去重后的全部 22 条', () => {
+    expect(filterEvents(PANDORA_EVENTS, '')).toHaveLength(22)
+    expect(filterEvents(PANDORA_EVENTS, '   ')).toHaveLength(22)
   })
 
   it('按名称过滤「金币雨」共 6 条', () => {
@@ -116,10 +116,10 @@ describe('filterEvents', () => {
 })
 
 describe('groupEvents', () => {
-  it('去重后 21 条事件按名称合并为 13 组，计数与组数一致', () => {
+  it('去重后 22 条事件按名称合并为 14 组，计数与组数一致', () => {
     const groups = groupEvents(PANDORA_EVENTS)
-    expect(groups).toHaveLength(13)
-    expect(groups.reduce((sum, group) => sum + group.count, 0)).toBe(21)
+    expect(groups).toHaveLength(14)
+    expect(groups.reduce((sum, group) => sum + group.count, 0)).toBe(22)
   })
 
   it('「金币雨」组：6 条、最高稀有度紫色、tier_code 去重排序', () => {
@@ -155,9 +155,9 @@ describe('groupEvents', () => {
 })
 
 describe('sortGroups', () => {
-  it('默认稀有度降序：首组为最新的紫色组「动起来！」，末组为唯一青铜组「回归起点」', () => {
+  it('默认稀有度降序：首组为最新的紫色组「关键输出」，末组为唯一青铜组「回归起点」', () => {
     const result = sortGroups(groupEvents(PANDORA_EVENTS), 'rarity-desc')
-    expect(result[0].eventName).toBe('动起来！')
+    expect(result[0].eventName).toBe('关键输出')
     expect(result[0].maxRarity).toBe('purple')
     expect(result[result.length - 1].eventName).toBe('回归起点')
     for (let i = 1; i < result.length; i += 1) {
