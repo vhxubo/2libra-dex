@@ -11,6 +11,7 @@ if (typeof window !== 'undefined' && !window.ResizeObserver) {
   window.ResizeObserver = ResizeObserverStub as unknown as typeof ResizeObserver
 }
 
-if (!Element.prototype.scrollIntoView) {
+// worker/ 下的测试跑在 node 环境（无 jsdom），DOM 桩仅在浏览器环境补齐
+if (typeof Element !== 'undefined' && !Element.prototype.scrollIntoView) {
   Element.prototype.scrollIntoView = () => {}
 }

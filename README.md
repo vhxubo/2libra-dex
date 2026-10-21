@@ -1,6 +1,6 @@
 # 2Libra 图鉴
 
-2Libra 徽章图鉴:浏览已采集的徽章数据,支持搜索、筛选、排序、分页与详情分享;「潘多拉事件」页以纯表格展示已采集的事件记录,支持按稀有度与 tier_code 排序;内置数据来源页(`/sources`)与浅色/深色主题切换。站点包含徽章图鉴、潘多拉事件与数据来源三个页面。
+2Libra 徽章图鉴:浏览已采集的徽章数据,支持搜索、筛选、排序、分页与详情分享;「潘多拉事件」页以纯表格展示已采集的事件记录,支持按稀有度与 tier_code 排序;内置数据来源页(`/sources`)与浅色/深色主题切换;支持使用 2libra 账号 OAuth 登录(Cloudflare Worker 代理授权码交换并签发会话)。站点包含徽章图鉴、潘多拉事件与数据来源三个页面。
 
 > 数据说明:徽章数据来自对 2Libra 徽章卡片的公开页面采集(见根目录 `top/*.html` 与 `extract_badges.py`),当前 31 条记录;潘多拉事件数据来自社区收集贴([forum-function/nRdljKG](https://2libra.com/post/forum-function/nRdljKG))与其公开通知接口,当前 29 条采集记录,内容完全重复的仅保留最新一条,页面展示 21 条。本站不宣称是完整官方图鉴,也不推断稀有度名称、获取有效期或当前可获取状态。
 
@@ -9,6 +9,7 @@
 - Vite + React 19 + TypeScript
 - Tailwind CSS 4 + shadcn/ui 风格组件(Radix primitives)+ Lucide 图标
 - TanStack Table(表格视图)、React Router(URL 状态同步)
+- Cloudflare Worker(登录 API:`/api/auth/*`)+ 静态资产部署
 - Vitest + React Testing Library
 - pnpm 管理依赖
 
@@ -16,10 +17,11 @@
 
 | 命令 | 说明 |
 | --- | --- |
-| `pnpm dev` | 启动开发服务器 |
+| `pnpm dev` | 启动开发服务器(`/api/auth` 代理到本地 wrangler,须另开 `pnpm dev:worker`) |
+| `pnpm dev:worker` | 启动 Worker + 静态资产本地服务(需先 `pnpm build` 产出 `dist/`,读取 `.dev.vars`) |
 | `pnpm build` | 类型检查 + 产出 `dist/` 静态文件 |
 | `pnpm preview` | 本地预览构建产物(自动带 SPA 回退) |
-| `pnpm typecheck` | 仅类型检查(`tsc -b`) |
+| `pnpm typecheck` | 类型检查(`tsc -b` + worker 独立 tsconfig) |
 | `pnpm lint` | ESLint 检查 |
 | `pnpm test` | 运行全部测试(Vitest,单次) |
 | `pnpm test:watch` | 测试-watch 模式 |
@@ -47,12 +49,24 @@ badges.json              # 徽章唯一数据源(采集脚本输出,构建时导
 pandora.json             # 潘多拉事件唯一数据源(采集输出,构建时导入)
 extract_badges.py        # 采集解析脚本
 top/                     # 采集的原始页面快照(gitignore)
-wrangler.jsonc           # Cloudflare Workers 部署配置
+wrangler.jsonc           # Cloudflare Workers 部署配置(main + assets)
+worker/                  # Cloudflare Worker(登录 API 与 SPA 回退)
+  index.ts               # 路由:/api/auth/* 四个端点,其余转静态资产
+  oauth.ts               # 2libra OAuth 调用(token 交换、拉取 /me)
+  session.ts             # 会话令牌签发/校验(HMAC 签名 cookie)
+  tsconfig.json          # worker 独立类型检查配置
+.dev.vars                # 本地开发密钥(gitignore)
 public/                  # favicon 等静态资源
 src/
   app/                   # 应用外壳:导航、页脚、路由、主题切换按钮
   components/            # 共享组件:ui/(shadcn 风格)、Pagination
   lib/                   # theme.ts(主题读写)、useOverflowTitle.ts、utils.ts
+  features/auth/         # 登录业务模块
+    types.ts oauth.ts    # 类型与纯函数(授权地址、state 存取、回调解析)
+    AuthContext.tsx      # 会话状态 Provider(login/logout/refresh)
+    AuthCallbackPage.tsx # /auth/callback 回调处理页
+    components/          # 导航栏用户菜单
+    *.test.ts(x)         # 单元测试与交互测试
   features/badges/       # 徽章业务模块
     types.ts data.ts     # 类型与数据接入
     query.ts             # 搜索/筛选/排序/获得率解析(纯函数)
@@ -71,6 +85,7 @@ src/
 | `/badges` | 徽章图鉴(首页,`/` 重定向至此) |
 | `/pandora` | 潘多拉事件(纯表格,表头排序) |
 | `/sources` | 数据来源(徽章图鉴页头入口进入) |
+| `/auth/callback` | OAuth 授权回跳处理(无界面内容,完成后跳回图鉴) |
 
 未知路径一律重定向回 `/badges`。
 
@@ -102,18 +117,44 @@ src/
 
 `/sources` 展示采集时参考的公开用户页面:2Libra 管理员与金币排行榜 Top 10,均链接到对应的用户介绍页,数据维护在 `src/features/sources/data.ts`。
 
+## 登录(2libra OAuth 2.0)
+
+使用 2libra 账号授权登录,`client_secret` 只存在于 Cloudflare Worker 服务端,不进前端产物;前端不保存任何 access_token,localStorage 无敏感数据。
+
+流程:导航栏「登录」→ 跳转 `https://2libra.com/oauth/authorize`(带随机 `state`,存 sessionStorage 防 CSRF)→ 用户确认后回跳 `/auth/callback` → 前端校验 `state`,把授权码 POST 给 Worker `/api/auth/exchange` → Worker 用 secret 换 access_token、拉取 `/api/oauth/me` 后立即丢弃 token,签发 httpOnly 签名 cookie(HMAC-SHA256,30 天)并返回用户资料 → 跳回图鉴,导航栏显示头像与用户名(菜单含 2libra 主页外链与退出登录)。
+
+Worker 端点(`worker/index.ts`,同源 `/api/auth/*`):
+
+| 端点 | 方法 | 说明 |
+| --- | --- | --- |
+| `/api/auth/config` | GET | 返回 `client_id` 与 `redirect_uri`;未配置 secret 时 503,前端登录按钮自动降级为「登录暂未开放」 |
+| `/api/auth/exchange` | POST | 授权码换会话(code 单次、10 分钟有效由 2libra 保证) |
+| `/api/auth/session` | GET | 依据 cookie 返回当前用户,无效会话 401 |
+| `/api/auth/logout` | POST | 清除会话 cookie |
+
+会话为无状态签名 cookie,不依赖数据库;后续接入 Cloudflare D1 等存储时,加 wrangler binding 即可让 API 调用天然携带身份,登录流程无需重构。2libra 的 access_token 有效期 2 小时且无 refresh token,仅展示资料不受影响,需刷新资料时重新走一次授权。
+
+本地联调:`.dev.vars` 写入三个键(`OAUTH_CLIENT_ID` / `OAUTH_CLIENT_SECRET` / `AUTH_SESSION_KEY`,gitignore 已忽略),`pnpm build && pnpm dev:worker` 后用 `wrangler dev` 的地址访问;`pnpm dev` 的 Vite 已把 `/api/auth` 代理到 `127.0.0.1:8787`。注意 redirect_uri 须与 2libra 注册值完全一致,完整授权回跳需在注册的域名下进行(本地仅适合调试 API 与界面)。
+
 ## 部署(Cloudflare Workers)
 
-当前部署方式为 Cloudflare Workers 静态资产,配置见 `wrangler.jsonc`:`assets.directory` 指向 `dist/`,`not_found_handling: "single-page-application"` 自动提供 SPA 回退,并绑定自定义域名 `2libra-dex.vhxubo.com`。
+Worker 脚本 + 静态资产部署,配置见 `wrangler.jsonc`:`main` 指向 `worker/index.ts`,`assets.directory` 指向 `dist/`(显式 `binding: ASSETS`),Worker 处理 `/api/auth/*` 与 SPA 回退,其余请求命中静态资产时直接返回。
+
+首次部署前配置三个 secret(申请 OAuth 应用时注册回调地址 `https://2libra-dex.vhxubo.com/auth/callback`):
 
 ```sh
 pnpm build
+npx wrangler secret put OAUTH_CLIENT_ID
+npx wrangler secret put OAUTH_CLIENT_SECRET
+npx wrangler secret put AUTH_SESSION_KEY   # 任意高强度随机串,用于会话签名
 npx wrangler deploy
 ```
 
+未配置 secret 时站点其余功能不受影响,仅登录入口显示「登录暂未开放」。
+
 ## 部署(其他静态托管)
 
-`pnpm build` 产出纯静态 `dist/`,可部署到任意静态托管。应用使用 BrowserRouter,**必须配置 SPA 路由回退**:除真实文件外,其余路径统一返回 `index.html`(200),否则刷新/直达 `/badges` 会 404。
+`pnpm build` 产出纯静态 `dist/`,可部署到任意静态托管,但登录依赖 Worker(`/api/auth/*`),纯静态托管下登录按钮会自动降级为不可用,其余功能不受影响。应用使用 BrowserRouter,**必须配置 SPA 路由回退**:除真实文件外,其余路径统一返回 `index.html`(200),否则刷新/直达 `/badges` 会 404。
 
 - **Nginx**
 
@@ -156,4 +197,4 @@ npx wrangler deploy
 
 ## 版本边界
 
-不包含登录、个人收藏、管理后台与自动采集。潘多拉事件当前为静态数据快照展示,不含事件效果实时解析。
+登录已完成(OAuth 授权 + 会话 cookie + 导航栏用户菜单);不包含个人收藏、管理后台与自动采集。潘多拉事件当前为静态数据快照展示,不含事件效果实时解析。数据库(D1/KV)为后续规划,当前会话为无状态签名 cookie,接入时无需重构登录流程。

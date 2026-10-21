@@ -1,7 +1,36 @@
+import { useState } from 'react'
 import { NavLink } from 'react-router-dom'
-import { Scale } from 'lucide-react'
+import { LogIn, Scale } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { useAuth } from '@/features/auth/AuthContext'
+import { UserMenu } from '@/features/auth/components/UserMenu'
+import { Button } from '@/components/ui/button'
 import { ThemeToggle } from './ThemeToggle'
+
+/** 导航栏登录入口：已登录显示用户菜单，未登录显示登录按钮。 */
+function HeaderAuth() {
+  const { status, loginAvailable, login } = useAuth()
+  const [pending, setPending] = useState(false)
+
+  if (status === 'authenticated') return <UserMenu />
+  if (status === 'loading') return null
+  return (
+    <Button
+      variant="ghost"
+      size="sm"
+      className="shrink-0"
+      disabled={!loginAvailable || pending}
+      title={loginAvailable ? '使用 2libra 账号登录' : '登录暂未开放'}
+      onClick={() => {
+        setPending(true)
+        void login().catch(() => setPending(false))
+      }}
+    >
+      <LogIn aria-hidden />
+      登录
+    </Button>
+  )
+}
 
 export function SiteHeader() {
   return (
@@ -43,6 +72,7 @@ export function SiteHeader() {
           >
             潘多拉事件
           </NavLink>
+          <HeaderAuth />
           <a
             href="https://github.com/vhxubo/2libra-dex"
             target="_blank"

@@ -2,8 +2,15 @@
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "2libra-dex",
   "compatibility_date": "2026-10-19",
+  // OAuth 回调地址须与 2libra 注册值完全一致；client_id/secret 与会话签名密钥
+  // 通过 `wrangler secret put OAUTH_CLIENT_ID` 等命令配置，不进仓库
+  "main": "worker/index.ts",
+  "vars": {
+    "OAUTH_REDIRECT_URI": "https://2libra-dex.vhxubo.com/auth/callback"
+  },
   "assets": {
     "directory": "./dist",
+    "binding": "ASSETS",
     "not_found_handling": "single-page-application"
   },
   "routes": [

@@ -1,4 +1,5 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
+import AuthCallbackPage from '@/features/auth/AuthCallbackPage'
 import BadgeDexPage from '@/features/badges/BadgeDexPage'
 import DataSourcesPage from '@/features/sources/DataSourcesPage'
 import PandoraEventsPage from '@/features/pandora/PandoraEventsPage'
@@ -15,6 +16,7 @@ export default function App() {
           <Route path="/badges" element={<BadgeDexPage />} />
           <Route path="/pandora" element={<PandoraEventsPage />} />
           <Route path="/sources" element={<DataSourcesPage />} />
+          <Route path="/auth/callback" element={<AuthCallbackPage />} />
           <Route path="*" element={<Navigate to="/badges" replace />} />
         </Routes>
       </main>
