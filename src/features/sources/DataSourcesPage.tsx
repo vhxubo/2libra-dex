@@ -40,7 +40,7 @@ export default function DataSourcesPage() {
       <header className="mb-5">
         <h1 className="text-xl font-bold tracking-tight sm:text-2xl">数据来源</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          本站徽章数据来自对 2Libra 公开页面的采集，以下为采集时参考的用户页面。
+          本站徽章数据来自对 2Libra 公开页面的采集，以下为参考页面。
         </p>
       </header>
 

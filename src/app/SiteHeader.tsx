@@ -30,16 +30,19 @@ export function SiteHeader() {
           >
             徽章图鉴
           </NavLink>
-          <span
-            aria-disabled="true"
-            title="即将开放"
-            className="hidden cursor-not-allowed items-center gap-1.5 whitespace-nowrap rounded-md px-3 py-1.5 text-muted-foreground/70 sm:flex"
+          <NavLink
+            to="/pandora"
+            className={({ isActive }) =>
+              cn(
+                'whitespace-nowrap rounded-md px-3 py-1.5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
+                isActive
+                  ? 'bg-accent font-medium text-accent-foreground'
+                  : 'text-muted-foreground hover:text-foreground',
+              )
+            }
           >
             潘多拉事件
-            <span className="shrink-0 rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-medium leading-none text-muted-foreground">
-              待开放
-            </span>
-          </span>
+          </NavLink>
           <a
             href="https://github.com/vhxubo/2libra-dex"
             target="_blank"

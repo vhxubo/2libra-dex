@@ -1,8 +1,8 @@
 # 2Libra 图鉴
 
-2Libra 徽章图鉴:浏览已采集的徽章数据,支持搜索、筛选、排序、分页与详情分享;内置数据来源页(`/sources`)与浅色/深色主题切换。站点包含徽章图鉴与数据来源两个页面;"潘多拉事件"在导航中标注待开放。
+2Libra 徽章图鉴:浏览已采集的徽章数据,支持搜索、筛选、排序、分页与详情分享;「潘多拉事件」页以纯表格展示已采集的事件记录,支持按稀有度与 tier_code 排序;内置数据来源页(`/sources`)与浅色/深色主题切换。站点包含徽章图鉴、潘多拉事件与数据来源三个页面。
 
-> 数据说明:所有数据来自对 2Libra 徽章卡片的公开页面采集(见根目录 `top/*.html` 与 `extract_badges.py`),当前 31 条记录。本站不宣称是完整官方图鉴,也不推断稀有度名称、获取有效期或当前可获取状态。
+> 数据说明:徽章数据来自对 2Libra 徽章卡片的公开页面采集(见根目录 `top/*.html` 与 `extract_badges.py`),当前 31 条记录;潘多拉事件数据来自社区收集贴([forum-function/nRdljKG](https://2libra.com/post/forum-function/nRdljKG))与其公开通知接口,当前 29 条采集记录,内容完全重复的仅保留最新一条,页面展示 21 条。本站不宣称是完整官方图鉴,也不推断稀有度名称、获取有效期或当前可获取状态。
 
 ## 技术栈
 
@@ -34,10 +34,17 @@
 
 字段含义保持采集时的定义:`id / name / icon / level(T0–T3) / rate(获得率,%) / condition(获取条件) / attrType(佩戴属性·描述) / attr(属性文本)`。显示时获得率直接添加 `%`,例如 `0.01 → 0.01%`。
 
+### 潘多拉事件数据
+
+`pandora.json` 是潘多拉事件页的唯一数据源,同样构建时导入(`src/features/pandora/data.ts`),文件结构为 `{ meta: { eventCount }, events: [...] }`,每条事件保留 `id / payload / created_at`,`payload` 内含 `rarity(bronze·silver·gold·purple) / tier_code / event_code / event_name / event_title / rolled_value(可为 null)`。数据按 `created_at` 从新到旧存放,页面不展示时间列,`created_at` 仅作同稀有度/同 tier_code 内的排序回退;`message` 字段与 `event_name：event_title` 重复,接入时丢弃。
+
+数据出处为社区收集贴 [【💰】潘多拉事件收集贴](https://2libra.com/post/forum-function/nRdljKG)(帖内含按稀有度排序的去重事件表,与本站 bronze < silver < gold < purple 的高低序一致),更新数据时可参考帖内说明调用通知接口 `GET /api/notifications/list?type=pandora` 采集。
+
 ## 目录结构
 
 ```
-badges.json              # 唯一数据源(采集脚本输出,构建时导入)
+badges.json              # 徽章唯一数据源(采集脚本输出,构建时导入)
+pandora.json             # 潘多拉事件唯一数据源(采集输出,构建时导入)
 extract_badges.py        # 采集解析脚本
 top/                     # 采集的原始页面快照(gitignore)
 wrangler.jsonc           # Cloudflare Workers 部署配置
@@ -52,6 +59,7 @@ src/
     urlState.ts          # URL 查询参数解析与序列化
     components/          # 卡片、表格视图、详情弹窗、筛选工具栏
     *.test.ts(x)         # 单元测试与交互测试
+  features/pandora/      # 潘多拉事件业务模块(结构同上,纯表格视图)
   features/sources/      # 数据来源页
   test/setup.ts          # Vitest 测试环境准备
 ```
@@ -61,6 +69,7 @@ src/
 | 路径 | 页面 |
 | --- | --- |
 | `/badges` | 徽章图鉴(首页,`/` 重定向至此) |
+| `/pandora` | 潘多拉事件(纯表格,表头排序) |
 | `/sources` | 数据来源(徽章图鉴页头入口进入) |
 
 未知路径一律重定向回 `/badges`。
@@ -80,6 +89,8 @@ src/
 | `badge` | 详情弹窗的徽章 ID | `?badge=followers` |
 
 默认每页 12 条,可选 24、48;筛选或排序变化自动回到第一页。未知徽章链接会得到明确提示。
+
+`/pandora` 为两级表格:接入时先对内容完全一致(payload 各字段)的重复记录去重、仅保留最新一条,同名事件合并为一级行(展示最高稀有度、tier_code 汇总),组内多于一条时点击行展开二级表查看各条事件(稀有度、tier_code、效果,时间从新到旧),仅一条时直接在「事件效果」列展示、不提供展开;搜索框覆盖事件名称/事件代码/效果文本/tier_code/稀有度(代码或中文标签),多关键词空格分隔且须全部命中,输入法组合期间不上报,搜索在分组前过滤;一级行默认按组内最高稀有度从高到低(bronze < silver < gold < purple)排列,点击表头「最高稀有度」「tier_code」在升降序间切换(tier 按组内字典序最小的 tier_code 比较,跨列点击稀有度落降序、tier_code 落升序);`?q=金币雨&sort=rarity-asc` 等值支持刷新恢复,非法值恢复默认。
 
 ## 主题(浅色 / 深色)
 
@@ -145,4 +156,4 @@ npx wrangler deploy
 
 ## 版本边界
 
-不包含登录、个人收藏、管理后台、自动采集与潘多拉事件数据处理。后续接入事件时复用应用导航与基础 UI,事件数据结构另行定义。
+不包含登录、个人收藏、管理后台与自动采集。潘多拉事件当前为静态数据快照展示,不含事件效果实时解析。

@@ -1,0 +1,384 @@
+{
+  "meta": {
+    "eventCount": 29
+  },
+  "events": [
+    {
+      "id": "83bce0b4-98b4-455a-b8c0-4c4b66c868f3",
+      "payload": {
+        "rarity": "bronze",
+        "message": "金币回收计划 X：执行金币回收计划 A，上缴 136 金币。",
+        "tier_code": "bronze",
+        "event_code": "coin_lose_flat",
+        "event_name": "金币回收计划 X",
+        "event_title": "执行金币回收计划 A，上缴 136 金币。",
+        "rolled_value": 136
+      },
+      "created_at": "2026-10-21T00:02:00.041Z"
+    },
+    {
+      "id": "8dbd32d2-6432-41fa-a092-fbe6bb7e5b91",
+      "payload": {
+        "rarity": "purple",
+        "message": "动起来！：你的GIF头像会直接动起来。如果你没有权限上传GIF头像，那你可以直接上传。",
+        "tier_code": "silver",
+        "event_code": "avatar_gif_animate",
+        "event_name": "动起来！",
+        "event_title": "你的GIF头像会直接动起来。如果你没有权限上传GIF头像，那你可以直接上传。",
+        "rolled_value": 1
+      },
+      "created_at": "2026-10-20T00:33:00.124Z"
+    },
+    {
+      "id": "85629793-04c3-462e-8807-a0a8713aa943",
+      "payload": {
+        "rarity": "bronze",
+        "message": "回归起点：当前佩戴的徽章失控掉落且下次开启潘多拉盒子前无法佩戴任何徽章（放心，你的徽章还在😁）。",
+        "tier_code": "bronze",
+        "event_code": "badge_drop_lock",
+        "event_name": "回归起点",
+        "event_title": "当前佩戴的徽章失控掉落且下次开启潘多拉盒子前无法佩戴任何徽章（放心，你的徽章还在😁）。",
+        "rolled_value": 0
+      },
+      "created_at": "2026-10-18T16:06:00.034Z"
+    },
+    {
+      "id": "65523521-4c2d-4da9-aaa1-060aee5d8984",
+      "payload": {
+        "rarity": "bronze",
+        "message": "金币雨：小小金币雨，获得 62 金币。",
+        "tier_code": "bronze",
+        "event_code": "coin_gain_flat",
+        "event_name": "金币雨",
+        "event_title": "小小金币雨，获得 62 金币。",
+        "rolled_value": 62
+      },
+      "created_at": "2026-10-18T00:35:00.047Z"
+    },
+    {
+      "id": "8a0e132c-2d06-4887-8ac5-98a38be018f7",
+      "payload": {
+        "rarity": "silver",
+        "message": "金币升降机：大部分金币变动 -17%，收益少一点，花费也少一点。",
+        "tier_code": "silver_penalty",
+        "event_code": "coin_modifier_percent",
+        "event_name": "金币升降机",
+        "event_title": "大部分金币变动 -17%，收益少一点，花费也少一点。",
+        "rolled_value": -17
+      },
+      "created_at": "2026-10-16T16:02:00.022Z"
+    },
+    {
+      "id": "3b2679c3-9b07-40b9-83ce-94068f38d13e",
+      "payload": {
+        "rarity": "bronze",
+        "message": "金币升降机：大部分金币变动 +7%，收益多一点，花费也多一点。",
+        "tier_code": "bronze_bonus",
+        "event_code": "coin_modifier_percent",
+        "event_name": "金币升降机",
+        "event_title": "大部分金币变动 +7%，收益多一点，花费也多一点。",
+        "rolled_value": 7
+      },
+      "created_at": "2026-10-15T16:14:00.011Z"
+    },
+    {
+      "id": "1f605adf-becb-4f6d-a5f6-72ede5e00b09",
+      "payload": {
+        "rarity": "gold",
+        "message": "金币雨：在金币雨中获得 367 金币，毫不费劲。",
+        "tier_code": "gold",
+        "event_code": "coin_gain_flat",
+        "event_name": "金币雨",
+        "event_title": "在金币雨中获得 367 金币，毫不费劲。",
+        "rolled_value": 367
+      },
+      "created_at": "2026-10-14T16:06:48.736Z"
+    },
+    {
+      "id": "15df79ba-03b6-4096-936a-b44019481c3d",
+      "payload": {
+        "rarity": "purple",
+        "message": "偏斜：你的头像将在 24 小时内随机偏斜。",
+        "tier_code": "avatar_skew_purple",
+        "event_code": "avatar_skew",
+        "event_name": "偏斜",
+        "event_title": "你的头像将在 24 小时内随机偏斜。",
+        "rolled_value": 0
+      },
+      "created_at": "2026-10-13T16:18:00.016Z"
+    },
+    {
+      "id": "ad073d97-4d95-44c0-86e8-21edd89e3ca7",
+      "payload": {
+        "rarity": "purple",
+        "message": "金币雨：获得 642 金币，不用客气。",
+        "tier_code": "purple",
+        "event_code": "coin_gain_flat",
+        "event_name": "金币雨",
+        "event_title": "获得 642 金币，不用客气。",
+        "rolled_value": 642
+      },
+      "created_at": "2026-10-13T00:44:48.752Z"
+    },
+    {
+      "id": "00ac4445-116f-4c96-9fdd-9eac3c4a72da",
+      "payload": {
+        "rarity": "gold",
+        "message": "多说多写：评论回复只能输入 10 个字以上。有失有得，生效期间，评论不扣除金币。",
+        "tier_code": "gold",
+        "event_code": "comment_min_length",
+        "event_name": "多说多写",
+        "event_title": "评论回复只能输入 10 个字以上。有失有得，生效期间，评论不扣除金币。",
+        "rolled_value": 10
+      },
+      "created_at": "2026-10-12T00:31:00.008Z"
+    },
+    {
+      "id": "e9be8fca-968b-4dd0-8e9e-236a96137354",
+      "payload": {
+        "rarity": "purple",
+        "message": "金币升降机：大部分金币变动 +40%，收益多一点，花费也多一点。",
+        "tier_code": "purple_bonus",
+        "event_code": "coin_modifier_percent",
+        "event_name": "金币升降机",
+        "event_title": "大部分金币变动 +40%，收益多一点，花费也多一点。",
+        "rolled_value": 40
+      },
+      "created_at": "2026-10-11T02:42:46.791Z"
+    },
+    {
+      "id": "e6be29fe-078b-4dd8-afc1-dbdab4e967da",
+      "payload": {
+        "rarity": "gold",
+        "message": "多说多写：评论回复只能输入 10 个字以上。有失有得，生效期间，评论不扣除金币。",
+        "tier_code": "gold",
+        "event_code": "comment_min_length",
+        "event_name": "多说多写",
+        "event_title": "评论回复只能输入 10 个字以上。有失有得，生效期间，评论不扣除金币。",
+        "rolled_value": 10
+      },
+      "created_at": "2026-10-10T00:33:00.012Z"
+    },
+    {
+      "id": "c29da7dc-e492-4e5c-bc04-2566c46d9b5e",
+      "payload": {
+        "rarity": "gold",
+        "message": "多说多写：评论回复只能输入 10 个字以上。有失有得，生效期间，评论不扣除金币。",
+        "tier_code": "gold",
+        "event_code": "comment_min_length",
+        "event_name": "多说多写",
+        "event_title": "评论回复只能输入 10 个字以上。有失有得，生效期间，评论不扣除金币。",
+        "rolled_value": 10
+      },
+      "created_at": "2026-10-09T00:27:20.287Z"
+    },
+    {
+      "id": "66d26263-dd5e-438a-afa4-09d3e2e722b9",
+      "payload": {
+        "rarity": "gold",
+        "message": "多说多写：评论回复只能输入 10 个字以上。有失有得，生效期间，评论不扣除金币。",
+        "tier_code": "gold",
+        "event_code": "comment_min_length",
+        "event_name": "多说多写",
+        "event_title": "评论回复只能输入 10 个字以上。有失有得，生效期间，评论不扣除金币。",
+        "rolled_value": 10
+      },
+      "created_at": "2026-10-08T00:25:00.057Z"
+    },
+    {
+      "id": "b8faeca5-1d48-499a-b698-b36e04307e1a",
+      "payload": {
+        "rarity": "gold",
+        "message": "多说多写：评论回复只能输入 10 个字以上。有失有得，生效期间，评论不扣除金币。",
+        "tier_code": "gold",
+        "event_code": "comment_min_length",
+        "event_name": "多说多写",
+        "event_title": "评论回复只能输入 10 个字以上。有失有得，生效期间，评论不扣除金币。",
+        "rolled_value": 10
+      },
+      "created_at": "2026-10-06T23:38:34.744Z"
+    },
+    {
+      "id": "f692e0a1-2c93-4162-afff-04bd90f4fab7",
+      "payload": {
+        "rarity": "purple",
+        "message": "妙笔生花：发帖和评论的金币费用固定为 1 金币。",
+        "tier_code": "purple",
+        "event_code": "fixed_text_cost",
+        "event_name": "妙笔生花",
+        "event_title": "发帖和评论的金币费用固定为 1 金币。",
+        "rolled_value": 1
+      },
+      "created_at": "2026-10-05T17:26:00.011Z"
+    },
+    {
+      "id": "5064a103-13f6-4b5b-a4cc-98f3aff72786",
+      "payload": {
+        "rarity": "gold",
+        "message": "模模糊糊：你的头像将会变得模模糊糊，看不清楚，嘿嘿。",
+        "tier_code": "bronze",
+        "event_code": "avatar_mosaic",
+        "event_name": "模模糊糊",
+        "event_title": "你的头像将会变得模模糊糊，看不清楚，嘿嘿。",
+        "rolled_value": 1
+      },
+      "created_at": "2026-10-05T14:55:00.027Z"
+    },
+    {
+      "id": "51de10bd-c696-4602-8c54-83c843a0a9c5",
+      "payload": {
+        "rarity": "bronze",
+        "message": "金币雨：小小金币雨，获得 82 金币。",
+        "tier_code": "bronze",
+        "event_code": "coin_gain_flat",
+        "event_name": "金币雨",
+        "event_title": "小小金币雨，获得 82 金币。",
+        "rolled_value": 82
+      },
+      "created_at": "2026-10-04T06:40:00.086Z"
+    },
+    {
+      "id": "fcc649ea-fe93-428f-837a-c69160e7ee6e",
+      "payload": {
+        "rarity": "gold",
+        "message": "透明了！：你的头像将在 24 小时内变透明。",
+        "tier_code": "bronze",
+        "event_code": "avatar_transparent",
+        "event_name": "透明了！",
+        "event_title": "你的头像将在 24 小时内变透明。",
+        "rolled_value": 1
+      },
+      "created_at": "2026-10-03T02:09:00.013Z"
+    },
+    {
+      "id": "d4d3deb1-9af3-4b56-8153-7b4c7c1420ef",
+      "payload": {
+        "rarity": "silver",
+        "message": "金币雨：手气不错，获得 181 金币。",
+        "tier_code": "silver",
+        "event_code": "coin_gain_flat",
+        "event_name": "金币雨",
+        "event_title": "手气不错，获得 181 金币。",
+        "rolled_value": 181
+      },
+      "created_at": "2026-10-02T02:33:00.021Z"
+    },
+    {
+      "id": "98594a1f-744e-4bfc-a72e-9a05af9357ac",
+      "payload": {
+        "rarity": "silver",
+        "message": "金币回收计划 X：执行金币回收计划 B，上缴 171 金币。",
+        "tier_code": "silver",
+        "event_code": "coin_lose_flat",
+        "event_name": "金币回收计划 X",
+        "event_title": "执行金币回收计划 B，上缴 171 金币。",
+        "rolled_value": 171
+      },
+      "created_at": "2026-09-30T17:18:00.013Z"
+    },
+    {
+      "id": "63e35d63-6a88-4fa5-88d0-840900ac79de",
+      "payload": {
+        "rarity": "gold",
+        "message": "多说多写：评论回复只能输入 10 个字以上。有失有得，生效期间，评论不扣除金币。",
+        "tier_code": "gold",
+        "event_code": "comment_min_length",
+        "event_name": "多说多写",
+        "event_title": "评论回复只能输入 10 个字以上。有失有得，生效期间，评论不扣除金币。",
+        "rolled_value": 10
+      },
+      "created_at": "2026-09-29T16:11:00.015Z"
+    },
+    {
+      "id": "b017cb50-9506-4928-bc5e-347a6669fae4",
+      "payload": {
+        "rarity": "gold",
+        "message": "多说多写：评论回复只能输入 10 个字以上。有失有得，生效期间，评论不扣除金币。",
+        "tier_code": "gold",
+        "event_code": "comment_min_length",
+        "event_name": "多说多写",
+        "event_title": "评论回复只能输入 10 个字以上。有失有得，生效期间，评论不扣除金币。",
+        "rolled_value": 10
+      },
+      "created_at": "2026-09-28T16:14:57.780Z"
+    },
+    {
+      "id": "9e6d3b57-194b-4d0f-8fa7-cf3a05c01eab",
+      "payload": {
+        "rarity": "purple",
+        "message": "金币池！：金币池命中时获得的金币增加 2 倍。",
+        "tier_code": "purple",
+        "event_code": "reward_pool_gain_multiple",
+        "event_name": "金币池！",
+        "event_title": "金币池命中时获得的金币增加 2 倍。",
+        "rolled_value": 2
+      },
+      "created_at": "2026-09-28T01:39:00.020Z"
+    },
+    {
+      "id": "5c2e7e59-3388-4a93-b921-75b83827e646",
+      "payload": {
+        "rarity": "purple",
+        "message": "缩小灯：你的头像将在 24 小时内缩小 60%。",
+        "tier_code": "avatar_shrink_purple",
+        "event_code": "avatar_shrink",
+        "event_name": "缩小灯",
+        "event_title": "你的头像将在 24 小时内缩小 60%。",
+        "rolled_value": null
+      },
+      "created_at": "2026-09-27T06:44:00.014Z"
+    },
+    {
+      "id": "58cf1067-f51a-4bd5-a4e4-8c780bc5d137",
+      "payload": {
+        "rarity": "silver",
+        "message": "无缘金币池：金币池将不会触发中奖。",
+        "tier_code": "silver",
+        "event_code": "reward_pool_never_win",
+        "event_name": "无缘金币池",
+        "event_title": "金币池将不会触发中奖。",
+        "rolled_value": null
+      },
+      "created_at": "2026-09-26T13:13:53.939Z"
+    },
+    {
+      "id": "8f636f84-78f5-4dd6-8908-419e1f7085e2",
+      "payload": {
+        "rarity": "gold",
+        "message": "透明了！：你的头像将在 24 小时内变透明。",
+        "tier_code": "bronze",
+        "event_code": "avatar_transparent",
+        "event_name": "透明了！",
+        "event_title": "你的头像将在 24 小时内变透明。",
+        "rolled_value": 1
+      },
+      "created_at": "2026-09-25T13:29:00.036Z"
+    },
+    {
+      "id": "e3b4cc30-1faa-4f6d-9c8b-302ac01e7d6b",
+      "payload": {
+        "rarity": "gold",
+        "message": "透明了！：你的头像将在 24 小时内变透明。",
+        "tier_code": "bronze",
+        "event_code": "avatar_transparent",
+        "event_name": "透明了！",
+        "event_title": "你的头像将在 24 小时内变透明。",
+        "rolled_value": 1
+      },
+      "created_at": "2026-09-24T00:29:00.022Z"
+    },
+    {
+      "id": "2be152f7-3077-4427-98c8-8aea5324f4c1",
+      "payload": {
+        "rarity": "bronze",
+        "message": "金币雨：小小金币雨，获得 84 金币。",
+        "tier_code": "bronze",
+        "event_code": "coin_gain_flat",
+        "event_name": "金币雨",
+        "event_title": "小小金币雨，获得 84 金币。",
+        "rolled_value": 84
+      },
+      "created_at": "2026-09-23T07:49:29.993Z"
+    }
+  ]
+}
