@@ -17,6 +17,7 @@ function renderToolbar({ q = '' }: { q?: string } = {}) {
     attrType: null,
     sort: SORT_OPTIONS[0].value,
     view: 'card',
+    iconMode: 'small',
     levelCounts: Object.fromEntries(
       BADGE_LEVELS.map((level) => [level, 1]),
     ) as ToolbarProps['levelCounts'],
@@ -28,6 +29,7 @@ function renderToolbar({ q = '' }: { q?: string } = {}) {
     onAttrTypeChange: vi.fn(),
     onSortChange: vi.fn(),
     onViewChange: vi.fn(),
+    onIconModeChange: vi.fn(),
     selectMode: false,
     selectedCount: 0,
     onToggleSelectMode: vi.fn(),

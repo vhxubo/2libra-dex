@@ -28,9 +28,40 @@ describe('GET /api/badge-icon', () => {
 
     expect(res.status).toBe(200)
     expect(res.headers.get('content-type')).toBe('image/svg+xml')
+    expect(res.headers.get('x-content-type-options')).toBe('nosniff')
     expect(res.headers.get('cache-control')).toBe('public, max-age=86400')
     expect(await res.text()).toBe('<svg></svg>')
     expect(fetchMock).toHaveBeenCalledWith('https://r2.2libra.com/badge/followers.svg')
+  })
+
+  it('size=small 时代理 svg/ 目录下的小图标，与默认大图标路径彼此隔离', async () => {
+    const fetchMock = vi.fn(
+      async () =>
+        new Response('<svg></svg>', {
+          headers: { 'content-type': 'image/svg+xml' },
+        }),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+
+    const small = await worker.fetch(
+      makeRequest('/api/badge-icon?id=listen_to_me&size=small'),
+      env,
+    )
+    expect(small.status).toBe(200)
+    expect(fetchMock).toHaveBeenCalledWith('https://r2.2libra.com/badge/svg/listen_to_me.svg')
+
+    await worker.fetch(makeRequest('/api/badge-icon?id=listen_to_me&size=large'), env)
+    expect(fetchMock).toHaveBeenLastCalledWith('https://r2.2libra.com/badge/listen_to_me.svg')
+  })
+
+  it('size 只允许 small|large，其余取值返回 400', async () => {
+    const fetchMock = vi.fn()
+    vi.stubGlobal('fetch', fetchMock)
+
+    const res = await worker.fetch(makeRequest('/api/badge-icon?id=followers&size=huge'), env)
+
+    expect(res.status).toBe(400)
+    expect(fetchMock).not.toHaveBeenCalled()
   })
 
   it('id 缺失或含非法字符返回 400', async () => {

@@ -5,6 +5,7 @@ import {
   SORT_OPTIONS,
   type AttrType,
   type BadgeLevel,
+  type CardIconMode,
   type SortKey,
   type ViewMode,
 } from './types'
@@ -16,6 +17,7 @@ export interface BadgeUrlState {
   attrType: AttrType | null
   sort: SortKey
   view: ViewMode
+  iconMode: CardIconMode
   page: number
   badgeId: string | null
 }
@@ -26,6 +28,7 @@ export const DEFAULT_URL_STATE: BadgeUrlState = {
   attrType: null,
   sort: DEFAULT_SORT_KEY,
   view: 'card',
+  iconMode: 'small',
   page: 1,
   badgeId: null,
 }
@@ -58,6 +61,7 @@ export function parseBadgeSearchParams(params: URLSearchParams): BadgeUrlState {
     attrType: ATTR_TYPES.find((attrType) => params.get('attr') === attrType) ?? null,
     sort: SORT_VALUES.includes(sortRaw as SortKey) ? (sortRaw as SortKey) : DEFAULT_SORT_KEY,
     view: params.get('view') === 'table' ? 'table' : 'card',
+    iconMode: params.get('icon') === 'large' ? 'large' : 'small',
     page: Number.isInteger(page) && page >= 1 ? page : 1,
     badgeId: params.get('badge')?.trim() || null,
   }
@@ -71,6 +75,7 @@ export function badgeStateToSearchParams(state: BadgeUrlState): URLSearchParams 
   if (state.attrType !== null) params.set('attr', state.attrType)
   if (state.sort !== DEFAULT_SORT_KEY) params.set('sort', state.sort)
   if (state.view !== 'card') params.set('view', state.view)
+  if (state.iconMode !== 'small') params.set('icon', state.iconMode)
   if (state.page > 1) params.set('page', String(state.page))
   if (state.badgeId !== null) params.set('badge', state.badgeId)
   return params

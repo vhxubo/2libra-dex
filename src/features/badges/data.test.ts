@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import raw from '../../../badges.json'
-import { ATTR_TYPES, BADGES, BADGE_COUNT, BADGE_LEVELS } from './data'
+import { ATTR_TYPES, BADGES, BADGE_COUNT, BADGE_LEVELS, toBadgeAssets } from './data'
 
 describe('徽章数据', () => {
   it('与 badges.json 的 meta 记录一致，共 31 条', () => {
@@ -24,6 +24,24 @@ describe('徽章数据', () => {
       expect(badge.rate).toBeGreaterThanOrEqual(0)
       expect(badge.rate).toBeLessThanOrEqual(100)
     }
+  })
+
+  it('每条记录同时具备小图标（列表用）与大图标（导出用）', () => {
+    for (const badge of BADGES) {
+      expect(badge.icon).toBe(`https://r2.2libra.com/badge/svg/${badge.id}.svg`)
+      expect(badge.exportIcon).toBe(`https://r2.2libra.com/badge/${badge.id}.svg`)
+    }
+  })
+
+  it('toBadgeAssets 对 id 做 encodeURIComponent，且两套地址互不混用', () => {
+    const assets = toBadgeAssets('listen_to_me')
+    expect(assets.icon).toBe('https://r2.2libra.com/badge/svg/listen_to_me.svg')
+    expect(assets.exportIcon).toBe('https://r2.2libra.com/badge/listen_to_me.svg')
+    expect(assets.icon).not.toBe(assets.exportIcon)
+
+    const encoded = toBadgeAssets('a b/c')
+    expect(encoded.icon).toBe('https://r2.2libra.com/badge/svg/a%20b%2Fc.svg')
+    expect(encoded.exportIcon).toBe('https://r2.2libra.com/badge/a%20b%2Fc.svg')
   })
 
   it('数据按等级与获得率排序（采集顺序约定）', () => {

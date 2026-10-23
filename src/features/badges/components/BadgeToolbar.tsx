@@ -26,6 +26,7 @@ import {
   SORT_OPTIONS,
   type AttrType,
   type BadgeLevel,
+  type CardIconMode,
   type SortKey,
   type ViewMode,
 } from '../types'
@@ -36,6 +37,7 @@ interface BadgeToolbarProps {
   attrType: AttrType | null
   sort: SortKey
   view: ViewMode
+  iconMode: CardIconMode
   levelCounts: Record<BadgeLevel, number>
   attrTypeCounts: Record<AttrType, number>
   selectMode: boolean
@@ -45,6 +47,7 @@ interface BadgeToolbarProps {
   onAttrTypeChange: (attrType: AttrType | null) => void
   onSortChange: (sort: SortKey) => void
   onViewChange: (view: ViewMode) => void
+  onIconModeChange: (iconMode: CardIconMode) => void
   onToggleSelectMode: () => void
 }
 
@@ -54,6 +57,7 @@ export function BadgeToolbar({
   attrType,
   sort,
   view,
+  iconMode,
   levelCounts,
   attrTypeCounts,
   selectMode,
@@ -63,6 +67,7 @@ export function BadgeToolbar({
   onAttrTypeChange,
   onSortChange,
   onViewChange,
+  onIconModeChange,
   onToggleSelectMode,
 }: BadgeToolbarProps) {
   const activeLevelSummary =
@@ -212,6 +217,36 @@ export function BadgeToolbar({
               {selectMode ? `退出选择 · 已选 ${selectedCount}` : '制作动图'}
             </span>
           </Button>
+
+          {view === 'card' && (
+            <div
+              role="group"
+              aria-label="卡片图标大小"
+              className="inline-flex items-center rounded-md border border-input bg-card p-0.5"
+            >
+              {(
+                [
+                  { value: 'small', label: '小图标' },
+                  { value: 'large', label: '大图标' },
+                ] as const
+              ).map(({ value, label }) => (
+                <button
+                  key={value}
+                  type="button"
+                  aria-pressed={iconMode === value}
+                  onClick={() => onIconModeChange(value)}
+                  className={cn(
+                    'inline-flex h-8 items-center rounded-[6px] px-2.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                    iconMode === value
+                      ? 'bg-primary text-primary-foreground'
+                      : 'text-muted-foreground hover:text-foreground',
+                  )}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          )}
 
           <div
             role="group"

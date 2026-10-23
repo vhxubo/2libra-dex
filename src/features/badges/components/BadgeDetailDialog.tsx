@@ -11,7 +11,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { formatRate } from '../query'
-import type { BadgeRecord } from '../types'
+import type { BadgeRecord, CardIconMode } from '../types'
 import { useOverflowTitle } from '@/lib/useOverflowTitle'
 import { BadgeImage } from './BadgeImage'
 import { LevelChip } from './LevelChip'
@@ -21,6 +21,8 @@ interface BadgeDetailDialogProps {
   onOpenChange: (open: boolean) => void
   badge?: BadgeRecord
   badgeId: string | null
+  /** 展示小图标（icon）还是大图标（exportIcon），与页面卡片图标开关联动。 */
+  iconMode?: CardIconMode
 }
 
 async function copyText(text: string): Promise<boolean> {
@@ -47,7 +49,13 @@ async function copyText(text: string): Promise<boolean> {
   }
 }
 
-export function BadgeDetailDialog({ open, onOpenChange, badge, badgeId }: BadgeDetailDialogProps) {
+export function BadgeDetailDialog({
+  open,
+  onOpenChange,
+  badge,
+  badgeId,
+  iconMode = 'small',
+}: BadgeDetailDialogProps) {
   // 复制结果按徽章 ID 记录，切换徽章时自然失效，无需在 effect 中重置
   const [copyResult, setCopyResult] = useState<{ id: string; state: 'done' | 'fail' } | null>(null)
   const resetTimer = useRef<number | null>(null)
@@ -98,7 +106,12 @@ export function BadgeDetailDialog({ open, onOpenChange, badge, badgeId }: BadgeD
       <DialogContent className="max-h-[90svh] w-full max-w-[calc(100%-2rem)] gap-0 rounded-xl p-0 sm:max-w-lg">
         <DialogHeader>
           <div className="flex items-center gap-3 pr-8">
-            <BadgeImage src={badge.icon} alt={badge.name} className="size-16" iconClassName="size-7" />
+            <BadgeImage
+              src={iconMode === 'large' ? badge.exportIcon : badge.icon}
+              alt={badge.name}
+              className={iconMode === 'large' ? 'size-24' : 'size-16'}
+              iconClassName={iconMode === 'large' ? 'size-10' : 'size-7'}
+            />
             <div className="min-w-0">
               <DialogTitle asChild>
                 <h2 ref={nameRef} className="truncate text-lg">

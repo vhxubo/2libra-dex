@@ -1,6 +1,6 @@
 import { Check } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import type { BadgeRecord } from '../types'
+import type { BadgeRecord, CardIconMode } from '../types'
 import { formatRate } from '../query'
 import { useOverflowTitle } from '@/lib/useOverflowTitle'
 import { BadgeImage } from './BadgeImage'
@@ -13,6 +13,8 @@ interface BadgeCardProps {
   selectMode?: boolean
   selected?: boolean
   onToggleSelect?: (id: string) => void
+  /** 展示小图标（icon）还是大图标（exportIcon），默认小图标。 */
+  iconMode?: CardIconMode
 }
 
 export function BadgeCard({
@@ -21,6 +23,7 @@ export function BadgeCard({
   selectMode = false,
   selected = false,
   onToggleSelect,
+  iconMode = 'small',
 }: BadgeCardProps) {
   const nameRef = useOverflowTitle<HTMLHeadingElement>(badge.name)
   const conditionRef = useOverflowTitle<HTMLParagraphElement>(badge.condition)
@@ -69,10 +72,10 @@ export function BadgeCard({
       )}
       <div className="flex items-start gap-3">
         <BadgeImage
-          src={badge.icon}
+          src={iconMode === 'large' ? badge.exportIcon : badge.icon}
           alt={badge.name}
-          className="size-14"
-          iconClassName="size-6"
+          className={iconMode === 'large' ? 'size-20' : 'size-14'}
+          iconClassName={iconMode === 'large' ? 'size-8' : 'size-6'}
         />
         <div className="min-w-0 flex-1">
           <h3 ref={nameRef} className="truncate text-base font-semibold">

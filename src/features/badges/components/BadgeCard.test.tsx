@@ -7,7 +7,8 @@ import { BadgeCard } from './BadgeCard'
 const badge: BadgeRecord = {
   id: 'followers',
   name: '篝火',
-  icon: 'https://r2.2libra.com/badge/followers.svg',
+  icon: 'https://r2.2libra.com/badge/svg/followers.svg',
+  exportIcon: 'https://r2.2libra.com/badge/followers.svg',
   level: 'T0',
   rate: 0.01,
   condition: '关注达成条件',
@@ -71,5 +72,19 @@ describe('BadgeCard', () => {
     await user.keyboard('{Enter}')
 
     expect(onToggleSelect).toHaveBeenCalledWith('followers')
+  })
+
+  it('默认展示小图标，大图标模式展示 exportIcon 并放大', () => {
+    const { rerender, container } = render(<BadgeCard badge={badge} onOpen={vi.fn()} />)
+
+    const smallImg = container.querySelector('[data-testid="badge-card"] img')!
+    expect(smallImg.getAttribute('src')).toBe(badge.icon)
+    expect(smallImg.className).toContain('size-14')
+
+    rerender(<BadgeCard badge={badge} onOpen={vi.fn()} iconMode="large" />)
+
+    const largeImg = container.querySelector('[data-testid="badge-card"] img')!
+    expect(largeImg.getAttribute('src')).toBe(badge.exportIcon)
+    expect(largeImg.className).toContain('size-20')
   })
 })

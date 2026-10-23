@@ -22,7 +22,7 @@ import {
   parseBadgeSearchParams,
   type BadgeUrlState,
 } from './urlState'
-import type { AttrType, BadgeLevel, SortKey, ViewMode } from './types'
+import type { AttrType, BadgeLevel, CardIconMode, SortKey, ViewMode } from './types'
 import { PAGE_SIZE_OPTIONS } from './types'
 
 const DEFAULT_PAGE_SIZE: number = PAGE_SIZE_OPTIONS[0]
@@ -195,6 +195,10 @@ export default function BadgeDexPage() {
     },
     [update],
   )
+  const handleIconModeChange = useCallback(
+    (iconMode: CardIconMode) => update({ iconMode }),
+    [update],
+  )
   const handleToggleSelectMode = useCallback(() => {
     setSelectMode((prev) => {
       if (!prev) {
@@ -217,8 +221,14 @@ export default function BadgeDexPage() {
     [update],
   )
   const handleClearFilters = useCallback(
-    () => update({ ...DEFAULT_URL_STATE, view: state.view, sort: state.sort }),
-    [update, state.view, state.sort],
+    () =>
+      update({
+        ...DEFAULT_URL_STATE,
+        view: state.view,
+        sort: state.sort,
+        iconMode: state.iconMode,
+      }),
+    [update, state.view, state.sort, state.iconMode],
   )
   const handleRemoveFilter = useCallback(
     (patch: Partial<BadgeUrlState>) => update({ ...patch, page: 1 }),
@@ -255,6 +265,7 @@ export default function BadgeDexPage() {
         attrType={state.attrType}
         sort={state.sort}
         view={state.view}
+        iconMode={state.iconMode}
         levelCounts={LEVEL_COUNTS}
         attrTypeCounts={ATTR_TYPE_COUNTS}
         onQueryChange={handleQueryChange}
@@ -262,6 +273,7 @@ export default function BadgeDexPage() {
         onAttrTypeChange={handleAttrTypeChange}
         onSortChange={handleSortChange}
         onViewChange={handleViewChange}
+        onIconModeChange={handleIconModeChange}
         selectMode={selectMode}
         selectedCount={selectedIds.length}
         onToggleSelectMode={handleToggleSelectMode}
@@ -294,6 +306,7 @@ export default function BadgeDexPage() {
                 selectMode={selectMode}
                 selected={selectedIds.includes(badge.id)}
                 onToggleSelect={handleToggleSelect}
+                iconMode={state.iconMode}
               />
             ))}
           </div>
@@ -355,6 +368,7 @@ export default function BadgeDexPage() {
       {gifDialogOpen && (
         <GifMakerDialog
           badges={selectedBadges}
+          defaultIconSource={state.iconMode}
           onOpenChange={(open) => {
             if (!open) setGifDialogOpen(false)
           }}
@@ -366,6 +380,7 @@ export default function BadgeDexPage() {
         open={state.badgeId !== null}
         badge={activeBadge}
         badgeId={state.badgeId}
+        iconMode={state.iconMode}
         onOpenChange={(open) => {
           if (!open) update({ badgeId: null })
         }}

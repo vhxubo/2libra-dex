@@ -17,12 +17,18 @@ export const DEFAULT_SORT_KEY: SortKey = 'rate-desc'
 
 export type ViewMode = 'card' | 'table'
 
+/** 卡片视图使用的图标：小图标（icon）或大图标（exportIcon）。 */
+export type CardIconMode = 'small' | 'large'
+
 export const PAGE_SIZE_OPTIONS = [12, 24, 48] as const
 
 export interface BadgeRecord {
   id: string
   name: string
+  /** 小图标（badge/svg/），选择列表、排序列表和生成前预览用。 */
   icon: string
+  /** 大图标（badge/），仅 Canvas 绘制和 GIF 编码使用。 */
+  exportIcon: string
   level: BadgeLevel
   /** 获得率，单位 %，来自采集数据原值 */
   rate: number

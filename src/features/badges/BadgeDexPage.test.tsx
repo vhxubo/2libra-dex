@@ -37,6 +37,91 @@ describe('BadgeDexPage', () => {
     expect(screen.queryAllByTestId('badge-card')).toHaveLength(0)
     expect(screen.queryByTestId('badge-grid')).not.toBeInTheDocument()
     expect(rows[0].textContent).toContain(cardNames[0])
+    // 图标大小开关只属于卡片视图，表格视图下隐藏
+    expect(screen.queryByRole('group', { name: '卡片图标大小' })).not.toBeInTheDocument()
+  })
+
+  it('开关切换卡片大/小图标并写入 URL', async () => {
+    const user = userEvent.setup()
+    renderPage()
+
+    const firstImg = () =>
+      screen.getAllByTestId('badge-card')[0].querySelector('img') as HTMLImageElement
+    expect(firstImg().getAttribute('src')).toContain('/badge/svg/')
+
+    await user.click(screen.getByRole('button', { name: '大图标' }))
+
+    expect(firstImg().getAttribute('src')).toMatch(/\/badge\/[^/]+\.svg$/)
+    expect(firstImg().className).toContain('size-20')
+
+    await user.click(screen.getByRole('button', { name: '小图标' }))
+
+    expect(firstImg().getAttribute('src')).toContain('/badge/svg/')
+  })
+
+  it('URL 带 icon=large 时直接渲染大图标', () => {
+    renderPage('/badges?icon=large')
+    const img = screen.getAllByTestId('badge-card')[0].querySelector('img') as HTMLImageElement
+    expect(img.getAttribute('src')).toMatch(/\/badge\/[^/]+\.svg$/)
+    expect(img.className).toContain('size-20')
+  })
+
+  it('详情弹窗图标跟随页面大小图标开关', async () => {
+    const user = userEvent.setup()
+    renderPage('/badges?icon=large')
+
+    await user.click(screen.getByRole('button', { name: '查看 2Libra 一周年！ 详情' }))
+    const dialogImg = screen.getByRole('dialog').querySelector('img') as HTMLImageElement
+    expect(dialogImg.getAttribute('src')).toMatch(/\/badge\/[^/]+\.svg$/)
+    expect(dialogImg.className).toContain('size-24')
+
+    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: '关闭' }))
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+
+    // 切回小图标后重新打开详情，弹窗同步展示小图标
+    await user.click(screen.getByRole('button', { name: '小图标' }))
+    await user.click(screen.getByRole('button', { name: '查看 2Libra 一周年！ 详情' }))
+    const smallImg = screen.getByRole('dialog').querySelector('img') as HTMLImageElement
+    expect(smallImg.getAttribute('src')).toContain('/badge/svg/')
+    expect(smallImg.className).toContain('size-16')
+  })
+
+  it('制作动图弹窗图标来源跟随页面开关，弹窗内切换不回写页面', async () => {
+    const user = userEvent.setup()
+    renderPage()
+
+    await user.click(screen.getByRole('button', { name: '制作动图' }))
+    const cards = screen.getAllByTestId('badge-card')
+    await user.click(cards[0])
+    await user.click(cards[1])
+    await user.click(screen.getByRole('button', { name: '生成 GIF' }))
+
+    // 页面默认小图标 → 弹窗内默认「使用小图标」
+    expect(screen.getByRole('button', { name: '使用小图标' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    )
+
+    // 弹窗内切大图标只影响弹窗展示，背后卡片仍是小图标
+    await user.click(screen.getByRole('button', { name: '高清大图标' }))
+    const dialog = screen.getByRole('dialog')
+    expect(within(dialog).getByAltText('2Libra 一周年！').getAttribute('src')).toMatch(
+      /\/badge\/[^/]+\.svg$/,
+    )
+    const pageImg = cards[0].querySelector('img') as HTMLImageElement
+    expect(pageImg.getAttribute('src')).toContain('/badge/svg/')
+
+    await user.click(within(dialog).getByRole('button', { name: '关闭弹窗' }))
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    expect(pageImg.getAttribute('src')).toContain('/badge/svg/')
+
+    // 页面切大图标后重新打开弹窗，弹窗默认大图标
+    await user.click(screen.getByRole('button', { name: '大图标' }))
+    await user.click(screen.getByRole('button', { name: '生成 GIF' }))
+    expect(screen.getByRole('button', { name: '高清大图标' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    )
   })
 
   it('点击卡片打开详情弹窗，展示条件与属性，可关闭', async () => {

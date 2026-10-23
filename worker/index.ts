@@ -38,27 +38,38 @@ export default {
   },
 }
 
+/** 图标尺寸 → R2 上的白名单路径前缀；客户端只能选档，不能传任意 URL。 */
+function badgeIconPathPrefix(size: string | null): string | null {
+  if (size === null || size === 'large') return ''
+  if (size === 'small') return 'svg/'
+  return null
+}
+
 /** 同源代理徽章 SVG，兜底浏览器 canvas 导出时 R2 直连的 CORS 限制。 */
 async function handleBadgeIconRequest(url: URL): Promise<Response> {
   const id = url.searchParams.get('id') ?? ''
-  if (!BADGE_ICON_ID_PATTERN.test(id)) {
+  const pathPrefix = badgeIconPathPrefix(url.searchParams.get('size'))
+  if (!BADGE_ICON_ID_PATTERN.test(id) || pathPrefix === null) {
     return Response.json({ message: '徽章 id 非法' }, { status: 400 })
   }
   let upstream: Response
   try {
-    upstream = await fetch(`${BADGE_ICON_URL}${id}.svg`)
+    upstream = await fetch(`${BADGE_ICON_URL}${pathPrefix}${id}.svg`)
   } catch {
     return Response.json({ message: '徽章图标获取失败' }, { status: 502 })
   }
   if (
     upstream.status !== 200 ||
-    !(upstream.headers.get('content-type') ?? '').toLowerCase().includes('svg')
+    !(upstream.headers.get('content-type') ?? '')
+      .toLowerCase()
+      .startsWith('image/svg+xml')
   ) {
     return Response.json({ message: '徽章图标不存在' }, { status: 502 })
   }
   return new Response(upstream.body, {
     headers: {
       'Content-Type': 'image/svg+xml',
+      'X-Content-Type-Options': 'nosniff',
       'Cache-Control': 'public, max-age=86400',
     },
   })

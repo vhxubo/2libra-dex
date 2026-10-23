@@ -22,7 +22,7 @@ describe('parseBadgeSearchParams', () => {
 
   it('解析全部合法参数', () => {
     const state = parse(
-      '?q=篝火&level=T0,T2&attr=佩戴属性&sort=rate-desc&view=table&page=3&badge=followers',
+      '?q=篝火&level=T0,T2&attr=佩戴属性&sort=rate-desc&view=table&icon=large&page=3&badge=followers',
     )
     expect(state).toEqual({
       q: '篝火',
@@ -30,6 +30,7 @@ describe('parseBadgeSearchParams', () => {
       attrType: '佩戴属性',
       sort: 'rate-desc',
       view: 'table',
+      iconMode: 'large',
       page: 3,
       badgeId: 'followers',
     })
@@ -40,10 +41,11 @@ describe('parseBadgeSearchParams', () => {
     expect(parse('?level=T2,,T0')).toEqual({ ...DEFAULT_URL_STATE, levels: ['T0', 'T2'] })
   })
 
-  it('非法排序、视图、页码恢复默认', () => {
+  it('非法排序、视图、图标、页码恢复默认', () => {
     expect(parse('?sort=bogus').sort).toBe('rate-desc')
     expect(parse('?sort=default').sort).toBe('rate-desc')
     expect(parse('?view=grid').view).toBe('card')
+    expect(parse('?icon=huge').iconMode).toBe('small')
     expect(parse('?page=0').page).toBe(1)
     expect(parse('?page=abc').page).toBe(1)
     expect(parse('?page=-3').page).toBe(1)
@@ -71,10 +73,19 @@ describe('badgeStateToSearchParams', () => {
 
   it('解析-序列化-再解析保持一致', () => {
     const query =
-      '?q=篝火&level=T0,T2&attr=佩戴属性&sort=rate-desc&view=table&page=3&badge=followers'
+      '?q=篝火&level=T0,T2&attr=佩戴属性&sort=rate-desc&view=table&icon=large&page=3&badge=followers'
     const once = parse(query)
     const params = badgeStateToSearchParams(once)
     expect(parse(`?${params.toString()}`)).toEqual(once)
+  })
+
+  it('大图标写入 icon 参数，小图标不写入', () => {
+    expect(badgeStateToSearchParams({ ...DEFAULT_URL_STATE, iconMode: 'large' }).get('icon')).toBe(
+      'large',
+    )
+    expect(badgeStateToSearchParams({ ...DEFAULT_URL_STATE, iconMode: 'small' }).get('icon')).toBe(
+      null,
+    )
   })
 
   it('多关键词搜索原样写入', () => {

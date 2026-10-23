@@ -1,8 +1,24 @@
 import raw from '../../../badges.json'
 import { ATTR_TYPES, BADGE_LEVELS, type AttrType, type BadgeLevel, type BadgeRecord } from './types'
 
+const BADGE_ASSET_BASE = 'https://r2.2libra.com/badge'
+const BADGE_SMALL_ASSET_BASE = `${BADGE_ASSET_BASE}/svg`
+
+/** 由徽章 id 补齐两套图标地址：icon 用于列表展示，exportIcon 用于 GIF 导出。 */
+export function toBadgeAssets(id: string) {
+  return {
+    icon: `${BADGE_SMALL_ASSET_BASE}/${encodeURIComponent(id)}.svg`,
+    exportIcon: `${BADGE_ASSET_BASE}/${encodeURIComponent(id)}.svg`,
+  }
+}
+
 /** 单一数据源：根目录 badges.json（由 extract_badges.py 采集生成），构建时导入。 */
-export const BADGES = raw.badges as BadgeRecord[]
+type RawBadge = Omit<BadgeRecord, 'icon' | 'exportIcon'>
+
+export const BADGES: BadgeRecord[] = (raw.badges as RawBadge[]).map((badge) => ({
+  ...badge,
+  ...toBadgeAssets(badge.id),
+}))
 
 export const BADGE_COUNT = BADGES.length
 
