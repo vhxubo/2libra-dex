@@ -33,24 +33,32 @@ import {
   COLOR_LADDER,
   DEFAULT_DELAY_MS,
   DEFAULT_EFFECT,
+  DEFAULT_GIF_SIZE,
   DELAY_STEP_MS,
   EFFECT_GROUPS,
   EFFECT_LABELS,
+  GIF_SIZE_CAPS,
+  GIF_SIZE_INPUT_STEP,
   GifCancelledError,
   ICON_SOURCE_LABELS,
   MAX_DELAY_MS,
   MAX_FRAME_COUNT,
+  MAX_GIF_SIZE,
+  MAX_GIF_BYTES,
   MAX_SPIN_STEP_DEG,
   MIN_DELAY_MS,
+  MIN_GIF_SIZE,
   MIN_SPIN_STEP_DEG,
   SPIN_STEP_DEG_INPUT_STEP,
   computeDefaultSpinStepDeg,
   formatSeconds,
+  formatSizeLimit,
   iconUrlFor,
   isGifEffect,
   loadImageUrl,
   makeGif,
   normalizeDelayMs,
+  normalizeGifSize,
   normalizeSpinStepDeg,
   validateFrameCount,
   type GifEffect,
@@ -122,6 +130,8 @@ interface ConfigSnapshot {
   effect: GifEffect
   iconSource: GifIconSource
   spinStepDeg: number
+  size: number
+  sizeLimitBytes: number
 }
 
 type GenerateState =
@@ -158,6 +168,9 @@ export function GifMakerTool({
   // 间隔以文本态保存，容忍输入过程中的临时值（空串、未敲完的数字），失焦时钳位回写
   const [delayInput, setDelayInput] = useState<string>(String(DEFAULT_DELAY_MS))
   const [effect, setEffect] = useState<GifEffect>(readStoredEffect)
+  // 输出边长同样以文本态保存，失焦钳位回写；体积上限只在预设档位中选择
+  const [sizeInput, setSizeInput] = useState<string>(String(DEFAULT_GIF_SIZE))
+  const [sizeLimitBytes, setSizeLimitBytes] = useState<number>(MAX_GIF_BYTES)
   // 逐帧旋转的步进角：null 表示未手动调整，跟随 360/帧数 的派生默认值
   const [spinStepInput, setSpinStepInput] = useState<string | null>(null)
   const [generation, setGeneration] = useState<GenerateState>({ phase: 'idle' })
@@ -200,6 +213,7 @@ export function GifMakerTool({
   const generating = generation.phase === 'generating'
   const frameError = validateFrameCount(orderedBadges.length)
   const normalizedDelay = normalizeDelayMs(Number(delayInput))
+  const normalizedSize = normalizeGifSize(Number(sizeInput))
   // 未手动调整时默认步进角随帧数变化，保证循环累计旋转恰好一整圈
   const spinStepDisplay = spinStepInput ?? String(computeDefaultSpinStepDeg(orderedBadges.length))
   const normalizedSpinStep = normalizeSpinStepDeg(Number(spinStepDisplay))
@@ -348,6 +362,17 @@ export function GifMakerTool({
     setDelayInput(String(normalizedDelay))
   }
 
+  // 输出边长与间隔同套路：临时编辑不打扰预览，失焦钳位回写
+  const handleSizeChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const next = event.target.value
+    if (normalizeGifSize(Number(next)) !== normalizedSize) markConfigChanged()
+    setSizeInput(next)
+  }
+
+  const handleSizeBlur = () => {
+    setSizeInput(String(normalizedSize))
+  }
+
   // 步进角与间隔同套路：临时编辑不打扰预览，失焦钳位回写并锁定为手动值
   const handleSpinStepChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const next = event.target.value
@@ -371,6 +396,8 @@ export function GifMakerTool({
       effect,
       iconSource,
       spinStepDeg: normalizedSpinStep,
+      size: normalizedSize,
+      sizeLimitBytes,
     }
     revokeResult()
     setStale(false)
@@ -384,7 +411,14 @@ export function GifMakerTool({
     try {
       const blob = await makeGif(
         orderedBadges.map((frame) => badges.find((badge) => badge.id === frame.id) ?? frame),
-        { delayMs: normalizedDelay, effect, iconSource, spinStepDeg: normalizedSpinStep },
+        {
+          delayMs: normalizedDelay,
+          effect,
+          iconSource,
+          spinStepDeg: normalizedSpinStep,
+          size: normalizedSize,
+          sizeLimitBytes,
+        },
         (progress) => {
           if (requestRef.current === requestId) {
             setGeneration({ phase: 'generating', progress })
@@ -426,7 +460,7 @@ export function GifMakerTool({
     normalizedSpinStep,
   )} · ${ICON_SOURCE_LABELS[iconSource]} · 总时长约 ${formatSeconds(
     orderedBadges.length * normalizedDelay,
-  )}`
+  )} · ${normalizedSize}×${normalizedSize}px · 体积 ≤ ${formatSizeLimit(sizeLimitBytes)}`
 
   const generateButtonLabel =
     generation.phase === 'error'
@@ -454,7 +488,7 @@ export function GifMakerTool({
         <header className="px-5 pt-5">
           <h2 className="text-base font-semibold">制作 GIF</h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            拖动或用箭头调整出场顺序，生成 512×512 无限循环的轮播 GIF。
+            拖动或用箭头调整出场顺序，生成 {normalizedSize}×{normalizedSize} 无限循环的轮播 GIF。
           </p>
         </header>
 
@@ -712,6 +746,64 @@ export function GifMakerTool({
             </div>
           </section>
 
+          <section aria-label="输出与压缩">
+            <h3 className="mb-2 text-sm font-medium">输出与压缩</h3>
+            <div className="flex flex-col gap-2.5">
+              <div className="flex flex-wrap items-center gap-2">
+                <Input
+                  type="number"
+                  aria-label="输出边长像素数"
+                  value={sizeInput}
+                  min={MIN_GIF_SIZE}
+                  max={MAX_GIF_SIZE}
+                  step={GIF_SIZE_INPUT_STEP}
+                  disabled={generating}
+                  onChange={handleSizeChange}
+                  onBlur={handleSizeBlur}
+                  className="h-8 w-24 rounded-[6px] tabular-nums"
+                />
+                <span className="text-xs text-muted-foreground">
+                  像素边长（{MIN_GIF_SIZE}–{MAX_GIF_SIZE}，步长 {GIF_SIZE_INPUT_STEP}）：尺寸越大越清晰，体积与耗时随之增加
+                </span>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-xs text-muted-foreground">体积上限</span>
+                <div
+                  role="group"
+                  aria-label="选择体积上限"
+                  className="inline-flex flex-wrap items-center rounded-md border border-input bg-card p-0.5"
+                >
+                  {GIF_SIZE_CAPS.map((cap) => (
+                    <button
+                      key={cap.label}
+                      type="button"
+                      aria-pressed={sizeLimitBytes === cap.bytes}
+                      disabled={generating}
+                      onClick={() => {
+                        if (sizeLimitBytes !== cap.bytes) {
+                          markConfigChanged()
+                          setSizeLimitBytes(cap.bytes)
+                        }
+                      }}
+                      className={cn(
+                        'inline-flex h-8 items-center rounded-[6px] px-2.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50',
+                        sizeLimitBytes === cap.bytes
+                          ? 'bg-primary text-primary-foreground'
+                          : 'text-muted-foreground hover:text-foreground',
+                      )}
+                    >
+                      {cap.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <p className="flex items-start gap-1.5 text-xs text-muted-foreground">
+                <Info className="mt-0.5 size-3.5 shrink-0" aria-hidden />
+                超出体积上限时自动按 256→128→64→32→16 色逐级压缩重编码；仍超限会提示降低输出尺寸或减少帧数。
+              </p>
+            </div>
+          </section>
+
           <section aria-label="切换效果">
             <div className="mb-2 flex items-center gap-3">
               <h3 className="text-sm font-medium">切换效果</h3>
@@ -825,8 +917,8 @@ export function GifMakerTool({
                 <img
                   src={generation.url}
                   alt="徽章轮播 GIF 预览"
-                  width={512}
-                  height={512}
+                  width={generation.snapshot.size}
+                  height={generation.snapshot.size}
                   className="size-44 rounded-lg bg-white shadow-sm"
                 />
                 <div className="flex flex-wrap items-center justify-center gap-2 text-sm text-muted-foreground">
@@ -838,9 +930,11 @@ export function GifMakerTool({
                       generation.snapshot.spinStepDeg,
                     )}{' '}
                     · {ICON_SOURCE_LABELS[generation.snapshot.iconSource]} ·{' '}
+                    {generation.snapshot.size}×{generation.snapshot.size}px ·{' '}
                     <span className="font-medium tabular-nums text-foreground">
                       {formatBytes(generation.size)}
                     </span>
+                    （上限 {formatSizeLimit(generation.snapshot.sizeLimitBytes)}）
                   </span>
                   <Button asChild size="sm" disabled={stale}>
                     <a href={stale ? undefined : generation.url} download="2libra-badges.gif">

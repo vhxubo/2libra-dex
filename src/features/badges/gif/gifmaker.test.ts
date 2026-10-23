@@ -4,14 +4,19 @@ import {
   COLOR_LADDER,
   DEFAULT_DELAY_MS,
   DEFAULT_EFFECT,
+  DEFAULT_GIF_SIZE,
   DEFAULT_SPIN_STEP_DEG,
   DELAY_STEP_MS,
+  GIF_SIZE_CAPS,
   GifCancelledError,
   MAX_DELAY_MS,
+  MAX_GIF_SIZE,
+  MAX_GIF_BYTES,
   MAX_SPIN_STEP_DEG,
   MIN_DELAY_MS,
-  MIN_SPIN_STEP_DEG,
+  MIN_GIF_SIZE,
   MIN_FRAME_COUNT,
+  MIN_SPIN_STEP_DEG,
   buildFramePlan,
   computeDefaultSpinStepDeg,
   computeFrameLayout,
@@ -21,11 +26,14 @@ import {
   encodeWithinLimit,
   estimateDurationMs,
   formatSeconds,
+  formatSizeLimit,
   EFFECT_GROUPS,
   EFFECT_LABELS,
   GIF_EFFECTS,
   makeGif,
   normalizeDelayMs,
+  normalizeGifSize,
+  normalizeSizeLimitBytes,
   normalizeSpinStepDeg,
   validateFrameCount,
 } from './gifmaker'
@@ -182,7 +190,7 @@ describe('encodeWithinLimit', () => {
   it('首次编码即符合体积上限时直接采用', async () => {
     const encodeOnce = vi.fn(async () => ({ result: 'gif-256', size: 1024 }))
 
-    const picked = await encodeWithinLimit(COLOR_LADDER, encodeOnce)
+    const picked = await encodeWithinLimit(COLOR_LADDER, MAX_GIF_BYTES, encodeOnce)
 
     expect(picked).toEqual({ result: 'gif-256', maxColors: 256, size: 1024 })
     expect(encodeOnce).toHaveBeenCalledTimes(1)
@@ -195,17 +203,30 @@ describe('encodeWithinLimit', () => {
       size: maxColors === 64 ? 1024 : 10 * 1024 * 1024 + 1,
     }))
 
-    const picked = await encodeWithinLimit(COLOR_LADDER, encodeOnce)
+    const picked = await encodeWithinLimit(COLOR_LADDER, MAX_GIF_BYTES, encodeOnce)
 
     expect(picked?.maxColors).toBe(64)
     expect(encodeOnce).toHaveBeenCalledTimes(3)
     expect(encodeOnce).toHaveBeenLastCalledWith(64, 3)
   })
 
+  it('支持更小的目标上限：按目标而非硬上限判定', async () => {
+    const encodeOnce = vi.fn(async (maxColors: number) => ({
+      result: `gif-${maxColors}`,
+      size: maxColors === 32 ? 1.5 * 1024 * 1024 : 3 * 1024 * 1024,
+    }))
+
+    const picked = await encodeWithinLimit(COLOR_LADDER, 2 * 1024 * 1024, encodeOnce)
+
+    expect(picked?.maxColors).toBe(32)
+    expect(encodeOnce).toHaveBeenCalledTimes(4)
+    expect(encodeOnce).toHaveBeenLastCalledWith(32, 4)
+  })
+
   it('恰好等于上限也算符合', async () => {
     const encodeOnce = vi.fn(async () => ({ result: 'gif', size: 10 * 1024 * 1024 }))
 
-    expect(await encodeWithinLimit(COLOR_LADDER, encodeOnce)).toEqual({
+    expect(await encodeWithinLimit(COLOR_LADDER, MAX_GIF_BYTES, encodeOnce)).toEqual({
       result: 'gif',
       maxColors: 256,
       size: 10 * 1024 * 1024,
@@ -215,7 +236,7 @@ describe('encodeWithinLimit', () => {
   it('所有色阶都超限时返回 null', async () => {
     const encodeOnce = vi.fn(async () => ({ result: 'gif', size: 10 * 1024 * 1024 + 1 }))
 
-    expect(await encodeWithinLimit(COLOR_LADDER, encodeOnce)).toBeNull()
+    expect(await encodeWithinLimit(COLOR_LADDER, MAX_GIF_BYTES, encodeOnce)).toBeNull()
     expect(encodeOnce).toHaveBeenCalledTimes(COLOR_LADDER.length)
   })
 })
@@ -237,7 +258,58 @@ const defaultOptions = {
   effect: DEFAULT_EFFECT,
   iconSource: 'large',
   spinStepDeg: DEFAULT_SPIN_STEP_DEG,
+  size: DEFAULT_GIF_SIZE,
+  sizeLimitBytes: MAX_GIF_BYTES,
 } as const
+
+describe('输出尺寸与体积上限', () => {
+  it('默认边长 512，规范化钳位 128–1024 并取整', () => {
+    expect(DEFAULT_GIF_SIZE).toBe(512)
+    expect(MIN_GIF_SIZE).toBe(128)
+    expect(MAX_GIF_SIZE).toBe(1024)
+    expect(normalizeGifSize(512)).toBe(512)
+    expect(normalizeGifSize(100)).toBe(128)
+    expect(normalizeGifSize(9999)).toBe(1024)
+    expect(normalizeGifSize(300.6)).toBe(301)
+    expect(normalizeGifSize(Number.NaN)).toBe(DEFAULT_GIF_SIZE)
+    expect(normalizeGifSize(Number.POSITIVE_INFINITY)).toBe(1024)
+  })
+
+  it('体积上限预设从 512KB 到硬上限 10MB，均不超过硬上限', () => {
+    expect(GIF_SIZE_CAPS.map((cap) => cap.label)).toEqual([
+      '512 KB',
+      '1 MB',
+      '2 MB',
+      '5 MB',
+      '10 MB',
+    ])
+    for (const cap of GIF_SIZE_CAPS) {
+      expect(cap.bytes).toBeGreaterThan(0)
+      expect(cap.bytes).toBeLessThanOrEqual(MAX_GIF_BYTES)
+    }
+    expect(GIF_SIZE_CAPS[GIF_SIZE_CAPS.length - 1]?.bytes).toBe(MAX_GIF_BYTES)
+  })
+
+  it('normalizeSizeLimitBytes：非法值回落硬上限，正常值只降不升', () => {
+    expect(normalizeSizeLimitBytes(Number.NaN)).toBe(MAX_GIF_BYTES)
+    expect(normalizeSizeLimitBytes(0)).toBe(MAX_GIF_BYTES)
+    expect(normalizeSizeLimitBytes(-1)).toBe(MAX_GIF_BYTES)
+    expect(normalizeSizeLimitBytes(2 * 1024 * 1024)).toBe(2 * 1024 * 1024)
+    expect(normalizeSizeLimitBytes(50 * 1024 * 1024)).toBe(MAX_GIF_BYTES)
+  })
+
+  it('formatSizeLimit 按数量级选择 KB/MB 单位', () => {
+    expect(formatSizeLimit(512 * 1024)).toBe('512 KB')
+    expect(formatSizeLimit(1024 * 1024)).toBe('1 MB')
+    expect(formatSizeLimit(2 * 1024 * 1024)).toBe('2 MB')
+    expect(formatSizeLimit(5 * 1024 * 1024)).toBe('5 MB')
+    expect(formatSizeLimit(10 * 1024 * 1024)).toBe('10 MB')
+  })
+
+  it('色阶扩展到 16 色，为小体积上限提供更深的压缩空间', () => {
+    expect([...COLOR_LADDER]).toEqual([256, 128, 64, 32, 16])
+  })
+})
 
 describe('makeGif 取消', () => {
   afterEach(() => {

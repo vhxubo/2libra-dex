@@ -1,12 +1,29 @@
 import { GIFEncoder, applyPalette, quantize } from 'gifenc'
 import type { BadgeRecord } from '../types'
 
-/** GIF 画布边长（px）。 */
-export const GIF_SIZE = 512
-/** GIF 体积上限（字节），超出后沿色阶降级重编码。 */
+/** GIF 画布默认边长（px）。 */
+export const DEFAULT_GIF_SIZE = 512
+/** 输出边长范围：下限保证小尺寸下效果可辨识，上限控制编码耗时与体积。 */
+export const MIN_GIF_SIZE = 128
+export const MAX_GIF_SIZE = 1024
+/** 数值输入框步长（px）。 */
+export const GIF_SIZE_INPUT_STEP = 64
+/** GIF 体积硬上限（字节），用户选择的体积上限不会超过该值。 */
 export const MAX_GIF_BYTES = 10 * 1024 * 1024
-/** 编码超过体积上限时依次尝试的调色板色数。 */
-export const COLOR_LADDER = [256, 128, 64] as const
+/** 编码超过体积上限时依次尝试的调色板色数；上限越小可压缩空间越大。 */
+export const COLOR_LADDER = [256, 128, 64, 32, 16] as const
+/** 可选的体积上限档位（字节），编码结果保证不超过所选档位。 */
+export interface GifSizeCap {
+  label: string
+  bytes: number
+}
+export const GIF_SIZE_CAPS: readonly GifSizeCap[] = [
+  { label: '512 KB', bytes: 512 * 1024 },
+  { label: '1 MB', bytes: 1024 * 1024 },
+  { label: '2 MB', bytes: 2 * 1024 * 1024 },
+  { label: '5 MB', bytes: 5 * 1024 * 1024 },
+  { label: '10 MB', bytes: MAX_GIF_BYTES },
+]
 /** 徽章内容在画布中的最大占比，四周留白避免贴边。 */
 const CONTENT_SCALE = 0.875
 /** 帧背景色：GIF 不支持透明与渐变淡出，统一铺白底。 */
@@ -128,6 +145,10 @@ export interface GifMakerOptions {
   iconSource: GifIconSource
   /** 逐帧旋转效果的每枚步进角（度），正数逆时针；其他效果忽略该值。 */
   spinStepDeg: number
+  /** 输出画布边长（px），正方形；编码前经 normalizeGifSize 规范化。 */
+  size: number
+  /** 体积上限（字节），超限后沿色阶降级重编码；钳位到硬上限以内。 */
+  sizeLimitBytes: number
 }
 
 /** 通用 GIF 帧输入，支持徽章来源或用户提供的图片 URL。 */
@@ -163,6 +184,25 @@ export function normalizeDelayMs(value: number): number {
   if (Number.isNaN(value)) return DEFAULT_DELAY_MS
   const clamped = Math.min(MAX_DELAY_MS, Math.max(MIN_DELAY_MS, value))
   return Math.round(clamped / DELAY_STEP_MS) * DELAY_STEP_MS
+}
+
+/** 规范化输出边长：NaN 回落默认，钳位 128–1024 后取整到整数像素。 */
+export function normalizeGifSize(value: number): number {
+  if (Number.isNaN(value)) return DEFAULT_GIF_SIZE
+  const clamped = Math.min(MAX_GIF_SIZE, Math.max(MIN_GIF_SIZE, value))
+  return Math.round(clamped)
+}
+
+/** 规范化体积上限：非法值回落硬上限，正常值只降不升（不超过 10MB）。 */
+export function normalizeSizeLimitBytes(value: number): number {
+  if (!Number.isFinite(value) || value <= 0) return MAX_GIF_BYTES
+  return Math.min(value, MAX_GIF_BYTES)
+}
+
+/** 体积上限的展示文案：≥1MB 用 MB（保留必要小数），否则用 KB。 */
+export function formatSizeLimit(bytes: number): string {
+  if (bytes >= 1024 * 1024) return `${Number((bytes / (1024 * 1024)).toFixed(1))} MB`
+  return `${Math.max(1, Math.round(bytes / 1024))} KB`
 }
 
 /** 过渡帧按 10ms 取整（GIF 时间精度为百分之一秒），不做范围钳位；过渡帧时长可以低于 100ms。 */
@@ -237,7 +277,7 @@ export interface FrameLayout {
 export function computeFrameLayout(
   naturalWidth: number,
   naturalHeight: number,
-  canvasSize = GIF_SIZE,
+  canvasSize = DEFAULT_GIF_SIZE,
   contentScale = CONTENT_SCALE,
 ): FrameLayout {
   // 个别浏览器对缺内在尺寸的 SVG 会给出 0，按徽章源文件的实际尺寸兜底
@@ -740,15 +780,16 @@ async function encodeGif(
   onProgress?: (progress: GifMakerProgress) => void,
   signal?: AbortSignal,
 ): Promise<Blob> {
+  const size = normalizeGifSize(options.size)
   const gif = GIFEncoder()
-  const ctx = createCanvasContext(GIF_SIZE)
+  const ctx = createCanvasContext(size)
   const total = sources.length
   let done = 0
   for (const [index, spec] of specs.entries()) {
     throwIfAborted(signal)
     const from = sources[spec.badgeIndex]
     ctx.fillStyle = FRAME_BACKGROUND
-    ctx.fillRect(0, 0, GIF_SIZE, GIF_SIZE)
+    ctx.fillRect(0, 0, size, size)
     if (spec.kind === 'hold') {
       if (options.effect === 'spin') {
         // 每枚徽章按出场顺序累计旋转一个步进角，徽章间硬切
@@ -762,12 +803,12 @@ async function encodeGif(
       }
     } else {
       const to = sources[(spec.badgeIndex + 1) % total]
-      renderTransition(ctx, from, to, spec.progress, options.effect, GIF_SIZE)
+      renderTransition(ctx, from, to, spec.progress, options.effect, size)
     }
-    const frame = ctx.getImageData(0, 0, GIF_SIZE, GIF_SIZE)
+    const frame = ctx.getImageData(0, 0, size, size)
     const palette = quantize(frame.data, options.maxColors)
     const indexed = applyPalette(frame.data, palette)
-    gif.writeFrame(indexed, GIF_SIZE, GIF_SIZE, {
+    gif.writeFrame(indexed, size, size, {
       palette,
       delay: spec.delayMs,
     })
@@ -785,19 +826,20 @@ async function encodeGif(
   return new Blob([gif.bytes().slice()], { type: 'image/gif' })
 }
 
-/** 依次按色阶编码，返回第一个不超过体积上限的结果；全部超限返回 null。 */
+/** 依次按色阶编码，返回第一个不超过目标体积的结果；全部超限返回 null。 */
 export async function encodeWithinLimit<T>(
   ladder: readonly number[],
+  limitBytes: number,
   encodeOnce: (maxColors: number, attempt: number) => Promise<{ result: T; size: number }>,
 ): Promise<{ result: T; maxColors: number; size: number } | null> {
   for (const [index, maxColors] of ladder.entries()) {
     const attempt = await encodeOnce(maxColors, index + 1)
-    if (attempt.size <= MAX_GIF_BYTES) return { maxColors, ...attempt }
+    if (attempt.size <= limitBytes) return { maxColors, ...attempt }
   }
   return null
 }
 
-/** 将多枚徽章编码为 512x512 无限循环的轮播 GIF，体积保证不超过 10MB。 */
+/** 将多枚徽章编码为可选边长的无限循环轮播 GIF，沿色阶压缩到体积上限以内。 */
 export async function makeGif(
   badges: (BadgeRecord | GifFrameInput)[],
   options: GifMakerOptions,
@@ -806,6 +848,8 @@ export async function makeGif(
 ): Promise<Blob> {
   const frameError = validateFrameCount(badges.length)
   if (frameError !== null) throw new Error(frameError)
+  const size = normalizeGifSize(options.size)
+  const sizeLimitBytes = normalizeSizeLimitBytes(options.sizeLimitBytes)
   try {
     // 顺序加载并立即缩放，不保留整批原始分辨率图片。
     const sources: FrameSource[] = []
@@ -818,26 +862,28 @@ export async function makeGif(
       if (image.naturalWidth * image.naturalHeight > MAX_INPUT_PIXELS) {
         throw new Error('图片超过 2400 万像素，请缩小后重试')
       }
-      const ctx = createCanvasContext(GIF_SIZE)
-      ctx.drawImage(image, 0, 0, GIF_SIZE, GIF_SIZE)
+      const ctx = createCanvasContext(size)
+      ctx.drawImage(image, 0, 0, size, size)
       sources.push({
         image: ctx.canvas,
-        layout: computeFrameLayout(image.naturalWidth, image.naturalHeight),
+        layout: computeFrameLayout(image.naturalWidth, image.naturalHeight, size),
       })
     }
     const specs = buildFramePlan(badges.length, options)
-    const picked = await encodeWithinLimit(COLOR_LADDER, async (maxColors, attempt) => {
+    const picked = await encodeWithinLimit(COLOR_LADDER, sizeLimitBytes, async (maxColors, attempt) => {
       const blob = await encodeGif(
         specs,
         sources,
-        { ...options, maxColors, attempt },
+        { ...options, size, maxColors, attempt },
         onProgress,
         signal,
       )
       return { result: blob, size: blob.size }
     })
     if (picked === null) {
-      throw new Error('生成结果超过 10MB 限制，请减少徽章数量后重试')
+      throw new Error(
+        `生成结果无法压缩到 ${formatSizeLimit(sizeLimitBytes)} 以内，请降低输出尺寸、减少帧数或放宽体积上限后重试`,
+      )
     }
     return picked.result
   } catch (error) {

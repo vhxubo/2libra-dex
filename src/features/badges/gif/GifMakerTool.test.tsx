@@ -44,7 +44,14 @@ function deferred<T>() {
 
 interface MakeGifCall {
   badges: BadgeRecord[]
-  options: { delayMs: number; effect: string; iconSource: string; spinStepDeg: number }
+  options: {
+    delayMs: number
+    effect: string
+    iconSource: string
+    spinStepDeg: number
+    size: number
+    sizeLimitBytes: number
+  }
   onProgress: (progress: unknown) => void
   signal?: AbortSignal
   resolve: (blob: Blob) => void
@@ -111,6 +118,8 @@ beforeEach(() => {
   URL.createObjectURL = createObjectURLMock as unknown as typeof URL.createObjectURL
   URL.revokeObjectURL = vi.fn() as unknown as typeof URL.revokeObjectURL
   createObjectURLMock.mockClear()
+  // 计数随用例重置，避免硬编码的 blob:gif-N 因执行顺序变化而漂移
+  blobSeq = 0
 })
 
 afterEach(() => {
@@ -207,6 +216,102 @@ describe('GifMakerTool 默认配置与摘要', () => {
       'aria-pressed',
       'true',
     )
+  })
+})
+
+describe('GifMakerTool 输出尺寸与体积上限', () => {
+  it('默认边长 512、上限 10MB，摘要与头部说明展示当前配置', () => {
+    renderTool()
+
+    expect(screen.getByLabelText('输出边长像素数')).toHaveValue(512)
+    expect(screen.getByRole('button', { name: '10 MB' })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByText(/生成 512×512 无限循环/)).toBeInTheDocument()
+    expect(screen.getByText(/生成在本地完成/).textContent).toContain('512×512px · 体积 ≤ 10 MB')
+  })
+
+  it('边长超界失焦钳位到 128–1024，生成使用钳位后的值', async () => {
+    const user = userEvent.setup()
+    const calls = setupMakeGif()
+    renderTool()
+    const input = screen.getByLabelText('输出边长像素数')
+
+    await user.clear(input)
+    await user.type(input, '40')
+    await user.tab()
+    expect(input).toHaveValue(128)
+
+    await user.clear(input)
+    await user.type(input, '5000')
+    await user.tab()
+    expect(input).toHaveValue(1024)
+
+    await user.click(screen.getByRole('button', { name: '生成 GIF' }))
+    expect(calls[0]?.options.size).toBe(1024)
+  })
+
+  it('选择更小的体积上限后以新上限生成，头部说明跟随边长变化', async () => {
+    const user = userEvent.setup()
+    const calls = setupMakeGif()
+    renderTool()
+
+    await user.click(screen.getByRole('button', { name: '2 MB' }))
+    expect(screen.getByRole('button', { name: '2 MB' })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('button', { name: '10 MB' })).toHaveAttribute('aria-pressed', 'false')
+
+    const input = screen.getByLabelText('输出边长像素数')
+    await user.clear(input)
+    await user.type(input, '256')
+    await user.tab()
+    expect(screen.getByText(/生成 256×256 无限循环/)).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: '生成 GIF' }))
+    expect(calls[0]?.options.size).toBe(256)
+    expect(calls[0]?.options.sizeLimitBytes).toBe(2 * 1024 * 1024)
+  })
+
+  it('成功后修改边长或体积上限都会使旧预览标记过期', async () => {
+    const user = userEvent.setup()
+    const calls = setupMakeGif()
+    renderTool()
+
+    await user.click(screen.getByRole('button', { name: '生成 GIF' }))
+    await act(async () => {
+      calls[0]?.resolve(new Blob(['gif'], { type: 'image/gif' }))
+    })
+    const firstHref = screen
+      .getByRole('link', { name: '下载 GIF' })
+      .getAttribute('href')
+
+    const input = screen.getByLabelText('输出边长像素数')
+    await user.clear(input)
+    await user.type(input, '1024')
+    expect(screen.getByText(/配置已变更/)).toBeInTheDocument()
+
+    await user.clear(input)
+    await user.type(input, '512')
+    await user.tab()
+    await user.click(screen.getByRole('button', { name: '重新生成' }))
+    await act(async () => {
+      calls[1]?.resolve(new Blob(['gif'], { type: 'image/gif' }))
+    })
+    await waitFor(() => {
+      expect(
+        screen.getByRole('link', { name: '下载 GIF' }).getAttribute('href'),
+      ).not.toBe(firstHref)
+    })
+
+    await user.click(screen.getByRole('button', { name: '1 MB' }))
+    expect(screen.getByText(/配置已变更/)).toBeInTheDocument()
+  })
+
+  it('生成期间边长输入与体积上限均禁用', async () => {
+    const user = userEvent.setup()
+    setupMakeGif()
+    renderTool()
+
+    await user.click(screen.getByRole('button', { name: '生成 GIF' }))
+    expect(screen.getByLabelText('输出边长像素数')).toBeDisabled()
+    expect(screen.getByRole('button', { name: '2 MB' })).toBeDisabled()
   })
 })
 
@@ -434,6 +539,8 @@ describe('GifMakerTool 成功与失败', () => {
       effect: 'cut',
       iconSource: 'large',
       spinStepDeg: 120,
+      size: 512,
+      sizeLimitBytes: 10 * 1024 * 1024,
     })
     expect(screen.getByText(/正在生成/)).toBeInTheDocument()
   })
