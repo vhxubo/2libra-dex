@@ -86,13 +86,22 @@ export function isGifEffect(value: unknown): value is GifEffect {
 
 // ===== 逐帧旋转 =====
 
-/** 逐帧旋转默认步进角：与参考文件一致，每枚徽章逆时针多转 20°。 */
+/** 逐帧旋转的兜底步进角：帧数非法时使用，与参考文件一致（每枚逆时针 20°）。 */
 export const DEFAULT_SPIN_STEP_DEG = 20
 /** 步进角下限；超过 ±180° 的步进与反向补角等价，钳位即可覆盖全部取值。 */
 export const MIN_SPIN_STEP_DEG = -180
 export const MAX_SPIN_STEP_DEG = 180
 /** 数值输入框步长（度）。 */
 export const SPIN_STEP_DEG_INPUT_STEP = 5
+
+/**
+ * 帧数派生的默认步进角：360/帧数四舍五入，N 枚累计恰好旋转一整圈，
+ * 循环回到第一枚时旋转无缝衔接；帧数不足 2 时回落 20°。
+ */
+export function computeDefaultSpinStepDeg(frameCount: number): number {
+  if (!Number.isInteger(frameCount) || frameCount < MIN_FRAME_COUNT) return DEFAULT_SPIN_STEP_DEG
+  return Math.round(360 / frameCount)
+}
 
 /** 规范化步进角：NaN 回落默认，钳位 ±180°，取整到整数度。 */
 export function normalizeSpinStepDeg(value: number): number {

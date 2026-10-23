@@ -14,6 +14,7 @@ import {
   MAX_FRAME_COUNT,
   MIN_FRAME_COUNT,
   buildFramePlan,
+  computeDefaultSpinStepDeg,
   computeFrameLayout,
   computeHoldMs,
   computeSpinRotationRad,
@@ -328,7 +329,19 @@ describe('效果与图标来源常量', () => {
 })
 
 describe('逐帧旋转（spin）', () => {
-  it('默认步进 20°（与参考文件一致），规范化钳位 ±180 并取整', () => {
+  it('默认步进角按帧数派生：360/帧数四舍五入，帧数非法回落 20°', () => {
+    expect(computeDefaultSpinStepDeg(2)).toBe(180)
+    expect(computeDefaultSpinStepDeg(3)).toBe(120)
+    expect(computeDefaultSpinStepDeg(12)).toBe(30)
+    expect(computeDefaultSpinStepDeg(18)).toBe(20)
+    // 不整除时四舍五入到最接近的整数度
+    expect(computeDefaultSpinStepDeg(7)).toBe(51)
+    expect(computeDefaultSpinStepDeg(1)).toBe(DEFAULT_SPIN_STEP_DEG)
+    expect(computeDefaultSpinStepDeg(0)).toBe(DEFAULT_SPIN_STEP_DEG)
+    expect(computeDefaultSpinStepDeg(2.5)).toBe(DEFAULT_SPIN_STEP_DEG)
+  })
+
+  it('兜底步进 20°（与参考文件一致），规范化钳位 ±180 并取整', () => {
     expect(DEFAULT_SPIN_STEP_DEG).toBe(20)
     expect(MIN_SPIN_STEP_DEG).toBe(-180)
     expect(MAX_SPIN_STEP_DEG).toBe(180)

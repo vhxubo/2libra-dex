@@ -206,7 +206,7 @@ describe('GifMakerDialog 默认配置与摘要', () => {
 })
 
 describe('GifMakerDialog 逐帧旋转', () => {
-  it('选择逐帧旋转后显示角度输入，默认 20°，摘要附带步进角并以配置生成', async () => {
+  it('选择逐帧旋转后显示角度输入，默认取 360/帧数，摘要附带步进角并以配置生成', async () => {
     const user = userEvent.setup()
     const calls = setupMakeGif()
     renderDialog()
@@ -214,15 +214,50 @@ describe('GifMakerDialog 逐帧旋转', () => {
     expect(screen.queryByLabelText('逐帧旋转步进角度')).not.toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: '逐帧旋转' }))
     const input = screen.getByLabelText('逐帧旋转步进角度')
-    expect(input).toHaveValue(20)
-    expect(screen.getByText(/逐帧旋转 \+20°/)).toBeInTheDocument()
+    // 3 枚徽章：360/3 = 120
+    expect(input).toHaveValue(120)
+    expect(screen.getByText(/逐帧旋转 \+120°/)).toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: '生成 GIF' }))
     expect(calls[0]?.options.effect).toBe('spin')
-    expect(calls[0]?.options.spinStepDeg).toBe(20)
+    expect(calls[0]?.options.spinStepDeg).toBe(120)
   })
 
-  it('支持负角度：修改步进角后按新角度生成并记忆偏好', async () => {
+  it('默认步进角随帧数变化（360/帧数），手动调整后不再自动跟随', async () => {
+    const user = userEvent.setup()
+    const { rerender, onOpenChange, onRemoveBadge } = renderDialog()
+    await user.click(screen.getByRole('button', { name: '逐帧旋转' }))
+    expect(screen.getByLabelText('逐帧旋转步进角度')).toHaveValue(120)
+
+    rerender(
+      <GifMakerDialog
+        badges={badges.slice(0, 2)}
+        defaultIconSource="large"
+        onOpenChange={onOpenChange}
+        onRemoveBadge={onRemoveBadge}
+      />,
+    )
+    // 2 枚徽章：360/2 = 180
+    expect(screen.getByLabelText('逐帧旋转步进角度')).toHaveValue(180)
+
+    const input = screen.getByLabelText('逐帧旋转步进角度')
+    await user.clear(input)
+    await user.type(input, '90')
+    await user.tab()
+    expect(input).toHaveValue(90)
+
+    rerender(
+      <GifMakerDialog
+        badges={badges}
+        defaultIconSource="large"
+        onOpenChange={onOpenChange}
+        onRemoveBadge={onRemoveBadge}
+      />,
+    )
+    expect(screen.getByLabelText('逐帧旋转步进角度')).toHaveValue(90)
+  })
+
+  it('支持负角度：修改步进角后按新角度生成', async () => {
     const user = userEvent.setup()
     const calls = setupMakeGif()
     renderDialog()
@@ -237,7 +272,6 @@ describe('GifMakerDialog 逐帧旋转', () => {
 
     await user.click(screen.getByRole('button', { name: '生成 GIF' }))
     expect(calls[0]?.options.spinStepDeg).toBe(-45)
-    expect(window.localStorage.getItem('gif-maker:spin-step')).toBe('-45')
   })
 
   it('步进角超界时失焦钳位到 ±180', async () => {
@@ -436,7 +470,7 @@ describe('GifMakerDialog 成功与失败', () => {
       delayMs: 200,
       effect: 'cut',
       iconSource: 'large',
-      spinStepDeg: 20,
+      spinStepDeg: 120,
     })
     expect(screen.getByText(/正在生成/)).toBeInTheDocument()
   })

@@ -28,7 +28,6 @@ import {
   COLOR_LADDER,
   DEFAULT_DELAY_MS,
   DEFAULT_EFFECT,
-  DEFAULT_SPIN_STEP_DEG,
   DELAY_STEP_MS,
   EFFECT_GROUPS,
   EFFECT_LABELS,
@@ -39,6 +38,7 @@ import {
   MIN_DELAY_MS,
   MIN_SPIN_STEP_DEG,
   SPIN_STEP_DEG_INPUT_STEP,
+  computeDefaultSpinStepDeg,
   formatSeconds,
   iconUrlFor,
   isGifEffect,
@@ -52,7 +52,6 @@ import {
 } from './gifmaker'
 
 const EFFECT_STORAGE_KEY = 'gif-maker:effect'
-const SPIN_STEP_STORAGE_KEY = 'gif-maker:spin-step'
 
 function readStoredEffect(): GifEffect {
   try {
@@ -71,26 +70,7 @@ function writeStoredEffect(effect: GifEffect): void {
   }
 }
 
-function readStoredSpinStepDeg(): number {
-  try {
-    const raw = window.localStorage.getItem(SPIN_STEP_STORAGE_KEY)
-    if (raw === null || raw.trim() === '') return DEFAULT_SPIN_STEP_DEG
-    const value = Number(raw)
-    return Number.isFinite(value) ? normalizeSpinStepDeg(value) : DEFAULT_SPIN_STEP_DEG
-  } catch {
-    return DEFAULT_SPIN_STEP_DEG
-  }
-}
-
-function writeStoredSpinStepDeg(step: number): void {
-  try {
-    window.localStorage.setItem(SPIN_STEP_STORAGE_KEY, String(normalizeSpinStepDeg(step)))
-  } catch {
-    // 同上：仅影响记忆偏好
-  }
-}
-
-/** 效果在摘要中的展示名：逐帧旋转附带步进角（如「逐帧旋转 +20°」）。 */
+/** 效果在摘要中的展示名：逐帧旋转附带步进角（如「逐帧旋转 +30°」）。 */
 function effectSummaryLabel(effect: GifEffect, spinStepDeg: number): string {
   if (effect !== 'spin') return EFFECT_LABELS[effect]
   const step = normalizeSpinStepDeg(spinStepDeg)
@@ -139,8 +119,8 @@ export function GifMakerDialog({
   // 间隔以文本态保存，容忍输入过程中的临时值（空串、未敲完的数字），失焦时钳位回写
   const [delayInput, setDelayInput] = useState<string>(String(DEFAULT_DELAY_MS))
   const [effect, setEffect] = useState<GifEffect>(readStoredEffect)
-  // 逐帧旋转的步进角同样以文本态保存，仅在选择该效果时展示
-  const [spinStepInput, setSpinStepInput] = useState<string>(String(readStoredSpinStepDeg()))
+  // 逐帧旋转的步进角：null 表示未手动调整，跟随 360/帧数 的派生默认值
+  const [spinStepInput, setSpinStepInput] = useState<string | null>(null)
   const [iconSource, setIconSource] = useState<GifIconSource>(defaultIconSource)
   const [generation, setGeneration] = useState<GenerateState>({ phase: 'idle' })
   /** 成功后修改配置时保留旧预览，仅标记过期，避免误下载旧结果。 */
@@ -170,7 +150,9 @@ export function GifMakerDialog({
   const generating = generation.phase === 'generating'
   const frameError = validateFrameCount(orderedBadges.length)
   const normalizedDelay = normalizeDelayMs(Number(delayInput))
-  const normalizedSpinStep = normalizeSpinStepDeg(Number(spinStepInput))
+  // 未手动调整时默认步进角随帧数变化，保证循环累计旋转恰好一整圈
+  const spinStepDisplay = spinStepInput ?? String(computeDefaultSpinStepDeg(orderedBadges.length))
+  const normalizedSpinStep = normalizeSpinStepDeg(Number(spinStepDisplay))
 
   // 卸载时取消在途任务并释放预览 URL
   useEffect(() => {
@@ -223,21 +205,18 @@ export function GifMakerDialog({
     setDelayInput(String(normalizedDelay))
   }
 
-  // 步进角与间隔同套路：临时编辑不打扰预览，失焦钳位回写并记忆偏好
+  // 步进角与间隔同套路：临时编辑不打扰预览，失焦钳位回写并锁定为手动值
   const handleSpinStepChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const next = event.target.value
     const parsed = Number(next)
-    if (Number.isFinite(parsed)) {
-      if (normalizeSpinStepDeg(parsed) !== normalizedSpinStep) markConfigChanged()
-      writeStoredSpinStepDeg(parsed)
+    if (Number.isFinite(parsed) && normalizeSpinStepDeg(parsed) !== normalizedSpinStep) {
+      markConfigChanged()
     }
     setSpinStepInput(next)
   }
 
   const handleSpinStepBlur = () => {
     setSpinStepInput(String(normalizedSpinStep))
-    // 输入被清空等场景下 change 未写入，失焦时以最终值兜底同步
-    writeStoredSpinStepDeg(normalizedSpinStep)
   }
 
   const handleGenerate = async () => {
@@ -499,7 +478,7 @@ export function GifMakerDialog({
                 <Input
                   type="number"
                   aria-label="逐帧旋转步进角度"
-                  value={spinStepInput}
+                  value={spinStepDisplay}
                   min={MIN_SPIN_STEP_DEG}
                   max={MAX_SPIN_STEP_DEG}
                   step={SPIN_STEP_DEG_INPUT_STEP}
@@ -509,8 +488,8 @@ export function GifMakerDialog({
                   className="h-8 w-24 rounded-[6px] tabular-nums"
                 />
                 <span className="text-xs text-muted-foreground">
-                  度/枚（{MIN_SPIN_STEP_DEG}–{MAX_SPIN_STEP_DEG}）：正数逆时针、负数顺时针，默认{' '}
-                  {DEFAULT_SPIN_STEP_DEG}°
+                  度/枚（{MIN_SPIN_STEP_DEG}–{MAX_SPIN_STEP_DEG}）：正数逆时针、负数顺时针；
+                  默认 360÷帧数，循环无缝
                 </span>
               </div>
             )}
