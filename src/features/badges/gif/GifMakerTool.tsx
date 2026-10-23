@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
+  ArrowDownUp,
   ChevronLeft,
   ChevronRight,
   CircleAlert,
@@ -47,6 +48,7 @@ import {
   formatSeconds,
   iconUrlFor,
   isGifEffect,
+  loadImageUrl,
   makeGif,
   normalizeDelayMs,
   normalizeSpinStepDeg,
@@ -81,6 +83,22 @@ function effectSummaryLabel(effect: GifEffect, spinStepDeg: number): string {
   if (effect !== 'spin') return EFFECT_LABELS[effect]
   const step = normalizeSpinStepDeg(spinStepDeg)
   return `${EFFECT_LABELS.spin} ${step >= 0 ? '+' : ''}${step}°`
+}
+
+/** 判断拖拽内容是否携带文件：出场顺序的内部拖拽不带 Files 类型，不应触发上传区。 */
+function hasFilePayload(dataTransfer: DataTransfer | null): boolean {
+  return dataTransfer?.types.includes('Files') ?? false
+}
+
+/** 从剪贴板事件提取图片文件：优先 files 列表，Safari 等环境仅把图片暴露在 items 里。 */
+function clipboardImageFiles(data: DataTransfer | null): File[] {
+  if (data === null) return []
+  const fromFiles = Array.from(data.files ?? []).filter((file) => file.type.startsWith('image/'))
+  if (fromFiles.length > 0) return fromFiles
+  return Array.from(data.items ?? [])
+    .filter((item) => item.kind === 'file' && item.type.startsWith('image/'))
+    .map((item) => item.getAsFile())
+    .filter((file): file is File => file !== null)
 }
 
 export interface GifMakerToolProps {
@@ -144,11 +162,16 @@ export function GifMakerTool({
   const [spinStepInput, setSpinStepInput] = useState<string | null>(null)
   const [generation, setGeneration] = useState<GenerateState>({ phase: 'idle' })
   const [imageInputMessage, setImageInputMessage] = useState('')
+  /** 外链帧的预检结果：值为失败外链的名称；预检通过或本地帧不进入该表。 */
+  const [linkErrors, setLinkErrors] = useState<Record<string, string>>({})
+  /** 拖拽文件悬停上传区时的高亮反馈。 */
+  const [dropActive, setDropActive] = useState(false)
   /** 成功后修改配置时保留旧预览，仅标记过期，避免误下载旧结果。 */
   const [configStale, setStale] = useState(false)
   const frameKey = JSON.stringify(allFrames.map(({ id, src }) => [id, src]))
   const stale = configStale || (generation.phase === 'success' && generation.snapshot.frameKey !== frameKey)
-  const [pendingRemoval, setPendingRemoval] = useState<{ id: string; name: string } | 'all' | null>(null)
+  /** 仅「一键清空」需要二次确认；单帧移除直接生效。 */
+  const [pendingClearAll, setPendingClearAll] = useState(false)
   const requestRef = useRef(0)
   const resultUrlRef = useRef<string | null>(null)
   const abortRef = useRef<AbortController | null>(null)
@@ -234,19 +257,15 @@ export function GifMakerTool({
     else onRemoveBadge(id)
   }
 
-  const confirmRemoval = () => {
-    if (generating || pendingRemoval === null) return
-    if (pendingRemoval === 'all') {
-      markConfigChanged()
-      extraFrames.forEach((frame) => releaseLocalUrl(frame.src))
-      setExtraFrames([])
-      if (onClearBadges) onClearBadges()
-      else badges.forEach((badge) => onRemoveBadge(badge.id))
-      setOrder([])
-    } else {
-      handleRemove(pendingRemoval.id)
-    }
-    setPendingRemoval(null)
+  const confirmClearAll = () => {
+    if (generating || !pendingClearAll) return
+    markConfigChanged()
+    extraFrames.forEach((frame) => releaseLocalUrl(frame.src))
+    setExtraFrames([])
+    if (onClearBadges) onClearBadges()
+    else badges.forEach((badge) => onRemoveBadge(badge.id))
+    setOrder([])
+    setPendingClearAll(false)
   }
 
   const addImage = (src: string, name: string) => {
@@ -255,6 +274,66 @@ export function GifMakerTool({
     markConfigChanged()
     setExtraFrames((prev) => [...prev, frame])
     setOrder((prev) => [...prev, frame.id])
+    if (/^https?:/i.test(src)) probeLink(frame)
+  }
+
+  // 外链帧添加后立即静默预加载：加载成功说明可跨域读取，失败时标红提醒（生成必失败）
+  const probeLink = (frame: GifFrameInput) => {
+    loadImageUrl(frame.src).then(
+      () => {
+        setLinkErrors((prev) => {
+          if (!(frame.id in prev)) return prev
+          const next = { ...prev }
+          delete next[frame.id]
+          return next
+        })
+      },
+      () => {
+        setLinkErrors((prev) => ({ ...prev, [frame.id]: frame.name }))
+      },
+    )
+  }
+
+  // 上传 / 拖拽 / 粘贴共用：过滤图片、按剩余容量截断并追加为帧，返回实际添加数量
+  const acceptImageFiles = (files: File[]): number => {
+    if (generating || files.length === 0) return 0
+    const images = files.filter((file) => file.type.startsWith('image/'))
+    if (images.length === 0) {
+      setImageInputMessage('仅接受图片文件。')
+      return 0
+    }
+    const available = Math.max(0, MAX_FRAME_COUNT - allFrames.length)
+    const accepted = images.slice(0, available)
+    setImageInputMessage(accepted.length < images.length ? `最多支持 ${MAX_FRAME_COUNT} 帧。` : '')
+    for (const file of accepted) {
+      addImage(URL.createObjectURL(file), file.name)
+    }
+    return accepted.length
+  }
+
+  // 粘贴监听绑定一次，处理器经 ref 始终取到最新闭包（容量、生成状态随时变化）
+  const acceptImageFilesRef = useRef(acceptImageFiles)
+  useEffect(() => {
+    acceptImageFilesRef.current = acceptImageFiles
+  })
+
+  // 全局 Ctrl+V：焦点在页面任意位置（含本工具内输入框）粘贴图片都直接加帧；
+  // 剪贴板没有图片时不拦截，保持文本粘贴的默认行为
+  useEffect(() => {
+    const handlePaste = (event: ClipboardEvent) => {
+      const files = clipboardImageFiles(event.clipboardData)
+      if (files.length === 0) return
+      event.preventDefault()
+      acceptImageFilesRef.current(files)
+    }
+    window.addEventListener('paste', handlePaste)
+    return () => window.removeEventListener('paste', handlePaste)
+  }, [])
+
+  const reverseOrder = () => {
+    if (generating || orderedBadges.length < 2) return
+    markConfigChanged()
+    setOrder((prev) => [...prev].reverse())
   }
 
   // 仅在有效间隔变化时使旧结果失效；临时文本编辑（如删空重输）不打扰预览
@@ -338,6 +417,10 @@ export function GifMakerTool({
   }
 
   const canGenerate = frameError === null && !generating
+  // 预检失败的外链帧按当前出场顺序列出，提示语与列表项保持同一顺序
+  const failedLinks = orderedBadges
+    .filter((frame) => linkErrors[frame.id] !== undefined)
+    .map((frame) => frame.name)
   const summary = `${orderedBadges.length} 帧 · 每帧 ${formatSeconds(normalizedDelay)} · ${effectSummaryLabel(
     effect,
     normalizedSpinStep,
@@ -354,19 +437,17 @@ export function GifMakerTool({
 
   const content = (
     <>
-        <Dialog open={pendingRemoval !== null} onOpenChange={(open) => { if (!open) setPendingRemoval(null) }}>
+        <Dialog open={pendingClearAll} onOpenChange={(open) => { if (!open) setPendingClearAll(false) }}>
           <DialogContent role="alertdialog" className="w-[calc(100%-2rem)] max-w-md rounded-xl">
             <DialogHeader>
-              <DialogTitle>{pendingRemoval === 'all' ? '确认清空所有帧？' : '确认移除图片帧？'}</DialogTitle>
+              <DialogTitle>确认清空所有帧？</DialogTitle>
               <DialogDescription>
-                {pendingRemoval === 'all'
-                  ? `将移除全部 ${orderedBadges.length} 帧，清空后需要重新添加。`
-                  : `将从出场顺序中移除「${pendingRemoval?.name ?? ''}」，移除后需要重新添加。`}
+                将移除全部 {orderedBadges.length} 帧，清空后需要重新添加。
               </DialogDescription>
             </DialogHeader>
             <DialogFooter>
-              <Button variant="outline" autoFocus onClick={() => setPendingRemoval(null)}>取消</Button>
-              <Button variant="destructive" onClick={confirmRemoval}>{pendingRemoval === 'all' ? '确认清空' : '确认移除'}</Button>
+              <Button variant="outline" autoFocus onClick={() => setPendingClearAll(false)}>取消</Button>
+              <Button variant="destructive" onClick={confirmClearAll}>确认清空</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
@@ -385,8 +466,32 @@ export function GifMakerTool({
               <div className="flex items-center gap-2 text-sm font-medium"><BookOpen className="size-4 text-primary" aria-hidden />图鉴徽章</div>
               <Button type="button" size="sm" disabled={generating || allFrames.length >= MAX_FRAME_COUNT} onClick={() => onRequestAddBadges(MAX_FRAME_COUNT - allFrames.length)}>从图鉴添加</Button>
             </div>}
-            <div className="flex flex-col gap-3 rounded-lg border border-border bg-muted/30 p-3">
-              <p className="text-sm font-medium">自定义图片</p>
+            <div
+              aria-label="拖拽或粘贴上传图片区域"
+              onDragOver={(event) => {
+                if (generating || !hasFilePayload(event.dataTransfer)) return
+                event.preventDefault()
+                setDropActive(true)
+              }}
+              onDragLeave={(event) => {
+                if (event.currentTarget.contains(event.relatedTarget as Node | null)) return
+                setDropActive(false)
+              }}
+              onDrop={(event) => {
+                if (!hasFilePayload(event.dataTransfer)) return
+                event.preventDefault()
+                setDropActive(false)
+                acceptImageFiles(Array.from(event.dataTransfer.files))
+              }}
+              className={cn(
+                'flex flex-col gap-3 rounded-lg border border-dashed bg-muted/30 p-3 transition-colors',
+                dropActive ? 'border-primary bg-primary/5' : 'border-border',
+              )}
+            >
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="text-sm font-medium">自定义图片</p>
+                <p className="text-xs text-muted-foreground">拖拽图片到此区域，或在页面任意位置 Ctrl+V 粘贴</p>
+              </div>
               <label className={`inline-flex h-8 w-fit items-center gap-2 rounded-md border border-input bg-card px-3 text-xs transition-colors focus-within:ring-2 focus-within:ring-ring ${generating ? 'cursor-not-allowed opacity-50' : 'cursor-pointer hover:bg-accent'}`}>
                 <Upload className="size-3.5" aria-hidden />上传本地图片
                 <input
@@ -397,14 +502,7 @@ export function GifMakerTool({
                   disabled={generating}
                   className="sr-only"
                   onChange={(event) => {
-                    const files = Array.from(event.target.files ?? [])
-                    const available = Math.max(0, MAX_FRAME_COUNT - allFrames.length)
-                    const accepted = files.filter((file) => file.type.startsWith('image/')).slice(0, available)
-                    if (accepted.length < files.length) setImageInputMessage(`仅接受图片文件，最多添加 ${MAX_FRAME_COUNT} 帧。`)
-                    else setImageInputMessage('')
-                    for (const file of accepted) {
-                      addImage(URL.createObjectURL(file), file.name)
-                    }
+                    acceptImageFiles(Array.from(event.target.files ?? []))
                     event.target.value = ''
                   }}
                 />
@@ -483,7 +581,22 @@ export function GifMakerTool({
                 <span className="ml-1.5 text-xs font-normal text-muted-foreground">
                   共 {orderedBadges.length} 帧
                 </span>
-                {orderedBadges.length > 0 && <Button type="button" size="sm" variant="ghost" disabled={generating} onClick={() => setPendingRemoval('all')}>一键清空</Button>}
+                    {orderedBadges.length > 0 && (
+                  <span className="ml-1 inline-flex items-center gap-1 align-middle">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      disabled={generating || orderedBadges.length < 2}
+                      onClick={reverseOrder}
+                      aria-label="一键倒序出场顺序"
+                    >
+                      <ArrowDownUp className="size-3.5" aria-hidden />
+                      一键倒序
+                    </Button>
+                    <Button type="button" size="sm" variant="ghost" disabled={generating} onClick={() => setPendingClearAll(true)}>一键清空</Button>
+                  </span>
+                )}
               </h3>
             </div>
             {orderedBadges.length === 0 ? (
@@ -513,7 +626,11 @@ export function GifMakerTool({
                     onDragEnd={() => {
                       dragIndexRef.current = null
                     }}
-                    className="flex items-center gap-1.5 rounded-full border border-border bg-card py-1 pl-2 pr-1 shadow-sm"
+                    className={cn(
+                      'flex items-center gap-1.5 rounded-full border bg-card py-1 pl-2 pr-1 shadow-sm',
+                      linkErrors[badge.id] !== undefined ? 'border-destructive/60' : 'border-border',
+                    )}
+                    title={linkErrors[badge.id] !== undefined ? '外链图片预加载失败，可能不支持跨域读取' : undefined}
                   >
                     <GripVertical
                       className="size-3.5 shrink-0 cursor-grab text-muted-foreground"
@@ -549,8 +666,8 @@ export function GifMakerTool({
                       <button
                         type="button"
                         aria-label={`移除 ${badge.name}`}
-                      disabled={generating}
-                        onClick={() => setPendingRemoval({ id: badge.id, name: badge.name })}
+                        disabled={generating}
+                        onClick={() => handleRemove(badge.id)}
                         className="rounded-full p-1 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-30"
                       >
                         <X className="size-3.5" aria-hidden />
@@ -559,6 +676,18 @@ export function GifMakerTool({
                   </li>
                 ))}
               </ul>
+            )}
+            {failedLinks.length > 0 && (
+              <div
+                role="alert"
+                className="mt-2 flex items-start gap-2 rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive"
+              >
+                <CircleAlert className="mt-0.5 size-3.5 shrink-0" aria-hidden />
+                <span>
+                  外链图片预加载失败（可能不支持跨域读取），生成时将无法读取，请移除后改用本地上传：
+                  {failedLinks.join('、')}
+                </span>
+              </div>
             )}
           </section>
 

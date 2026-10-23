@@ -847,8 +847,11 @@ export async function makeGif(
   }
 }
 
-/** 加载用户本地预览 URL 或外链图片，并在 GIF 编码前解码为位图。 */
-function loadImageUrl(url: string, signal?: AbortSignal): Promise<HTMLImageElement> {
+/**
+ * 加载用户本地预览 URL 或外链图片，并在 GIF 编码前解码为位图。
+ * 也用于添加链接时的静默预检：加载成功即代表浏览器可跨域读取（crossOrigin 生效）。
+ */
+export function loadImageUrl(url: string, signal?: AbortSignal): Promise<HTMLImageElement> {
   throwIfAborted(signal)
   return new Promise((resolve, reject) => {
     const image = new Image()

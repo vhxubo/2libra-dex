@@ -1,4 +1,4 @@
-import { act, render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { BadgeRecord } from '../types'
@@ -6,9 +6,14 @@ import { GifCancelledError } from './gifmaker'
 import { GifMakerTool, type GifMakerToolProps } from './GifMakerTool'
 
 const makeGifMock = vi.fn()
+const loadImageUrlMock = vi.fn()
 vi.mock('./gifmaker', async (importOriginal) => {
   const actual = await importOriginal<typeof import('./gifmaker')>()
-  return { ...actual, makeGif: (...args: unknown[]) => makeGifMock(...args) }
+  return {
+    ...actual,
+    makeGif: (...args: unknown[]) => makeGifMock(...args),
+    loadImageUrl: (...args: unknown[]) => loadImageUrlMock(...args),
+  }
 })
 
 function makeBadge(id: string, name = id): BadgeRecord {
@@ -99,6 +104,9 @@ const createObjectURLMock = vi.fn(() => `blob:gif-${++blobSeq}`)
 
 beforeEach(() => {
   makeGifMock.mockReset()
+  // 外链预检默认通过，具体用例按需覆盖为失败
+  loadImageUrlMock.mockReset()
+  loadImageUrlMock.mockResolvedValue(undefined)
   window.localStorage.clear()
   URL.createObjectURL = createObjectURLMock as unknown as typeof URL.createObjectURL
   URL.revokeObjectURL = vi.fn() as unknown as typeof URL.revokeObjectURL
@@ -462,13 +470,135 @@ describe('帧变更与资源释放', () => {
     const input = screen.getByLabelText('上传本地图片')
     await user.upload(input, [new File(['a'], 'a.png', { type: 'image/png' }), new File(['b'], 'b.png', { type: 'image/png' })])
     const urls = createObjectURLMock.mock.results.map((result) => result.value)
+    // 单帧移除直接生效，无确认弹窗
     await user.click(screen.getByRole('button', { name: '移除 a.png' }))
-    await user.click(screen.getByRole('button', { name: '确认移除' }))
     expect(URL.revokeObjectURL).toHaveBeenCalledWith(urls[0])
     await user.click(screen.getByRole('button', { name: '一键清空' }))
     await user.click(screen.getByRole('button', { name: '确认清空' }))
     expect(URL.revokeObjectURL).toHaveBeenCalledWith(urls[1])
     unmount()
     expect(URL.revokeObjectURL).toHaveBeenCalledTimes(2)
+  })
+})
+
+describe('拖拽与粘贴添加图片', () => {
+  it('拖拽图片文件到上传区直接加帧，非文件拖拽不触发', () => {
+    renderTool({ badges: [] })
+    const zone = screen.getByLabelText('拖拽或粘贴上传图片区域')
+    const file = new File(['x'], 'dropped.png', { type: 'image/png' })
+    fireEvent.drop(zone, { dataTransfer: { types: ['Files'], files: [file] } })
+    expect(screen.getByRole('button', { name: '移除 dropped.png' })).toBeInTheDocument()
+
+    // 出场顺序的内部拖拽不带 Files 类型，不应被当作文件上传
+    fireEvent.drop(zone, { dataTransfer: { types: [], files: [] } })
+    expect(createObjectURLMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('全局 Ctrl+V 粘贴图片直接加帧并拦截默认行为，纯文本粘贴不受影响', () => {
+    renderTool({ badges: [] })
+    const file = new File(['x'], 'pasted.png', { type: 'image/png' })
+    expect(fireEvent.paste(window, { clipboardData: { files: [file] } })).toBe(false)
+    expect(screen.getByRole('button', { name: '移除 pasted.png' })).toBeInTheDocument()
+
+    // 剪贴板没有图片时不 preventDefault，保持文本粘贴的默认行为
+    expect(fireEvent.paste(window, { clipboardData: { files: [] } })).toBe(true)
+    expect(createObjectURLMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('剪贴板仅在 items 中暴露图片时（如 Safari）也能粘贴', () => {
+    renderTool({ badges: [] })
+    const file = new File(['x'], 'safari.png', { type: 'image/png' })
+    const items = [
+      { kind: 'file', type: 'image/png', getAsFile: () => file },
+      { kind: 'string', type: 'text/plain', getAsFile: () => null },
+    ]
+    fireEvent.paste(window, { clipboardData: { files: [], items } })
+    expect(screen.getByRole('button', { name: '移除 safari.png' })).toBeInTheDocument()
+  })
+
+  it('生成期间拖拽与粘贴均被忽略', async () => {
+    const user = userEvent.setup()
+    setupMakeGif()
+    renderTool()
+    await user.click(screen.getByRole('button', { name: '生成 GIF' }))
+
+    const file = new File(['x'], 'locked.png', { type: 'image/png' })
+    fireEvent.paste(window, { clipboardData: { files: [file] } })
+    fireEvent.drop(screen.getByLabelText('拖拽或粘贴上传图片区域'), {
+      dataTransfer: { types: ['Files'], files: [file] },
+    })
+    expect(screen.queryByRole('button', { name: '移除 locked.png' })).not.toBeInTheDocument()
+  })
+})
+
+describe('外链图片预检', () => {
+  it('添加外链后立即静默预加载，失败时显示红色警告', async () => {
+    const user = userEvent.setup()
+    loadImageUrlMock.mockRejectedValueOnce(new Error('load failed'))
+    renderTool({ badges: [] })
+
+    await user.type(screen.getByLabelText('图片链接'), 'https://example.com/x.png')
+    await user.click(screen.getByRole('button', { name: '添加链接' }))
+
+    const alert = await screen.findByRole('alert')
+    expect(alert.textContent).toContain('外链图片预加载失败')
+    expect(alert.textContent).toContain('x.png')
+    expect(loadImageUrlMock).toHaveBeenCalledWith('https://example.com/x.png')
+  })
+
+  it('预检通过时不出现警告', async () => {
+    const user = userEvent.setup()
+    renderTool({ badges: [] })
+
+    await user.type(screen.getByLabelText('图片链接'), 'https://example.com/ok.png')
+    await user.click(screen.getByRole('button', { name: '添加链接' }))
+
+    expect(await screen.findByRole('button', { name: '移除 ok.png' })).toBeInTheDocument()
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  })
+
+  it('移除预检失败的外链帧后警告随之消失', async () => {
+    const user = userEvent.setup()
+    loadImageUrlMock.mockRejectedValueOnce(new Error('load failed'))
+    renderTool({ badges: [] })
+
+    await user.type(screen.getByLabelText('图片链接'), 'https://example.com/bad.png')
+    await user.click(screen.getByRole('button', { name: '添加链接' }))
+    expect(await screen.findByRole('alert')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: '移除 bad.png' }))
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  })
+
+  it('本地上传的 blob 帧不做外链预检', async () => {
+    const user = userEvent.setup()
+    renderTool({ badges: [] })
+    await user.upload(screen.getByLabelText('上传本地图片'), [new File(['a'], 'local.png', { type: 'image/png' })])
+    expect(loadImageUrlMock).not.toHaveBeenCalled()
+  })
+})
+
+describe('一键倒序', () => {
+  it('倒序出场顺序并按新顺序生成', async () => {
+    const user = userEvent.setup()
+    const calls = setupMakeGif()
+    renderTool()
+
+    await user.click(screen.getByRole('button', { name: '一键倒序出场顺序' }))
+    await user.click(screen.getByRole('button', { name: '生成 GIF' }))
+
+    expect(calls[0]?.badges.map((badge) => badge.id)).toEqual(['c', 'b', 'a'])
+  })
+
+  it('少于 2 帧或生成期间禁用', async () => {
+    const user = userEvent.setup()
+    setupMakeGif()
+    const { unmount } = renderTool({ badges: [makeBadge('only')] })
+    expect(screen.getByRole('button', { name: '一键倒序出场顺序' })).toBeDisabled()
+    unmount()
+
+    renderTool()
+    await user.click(screen.getByRole('button', { name: '生成 GIF' }))
+    expect(screen.getByRole('button', { name: '一键倒序出场顺序' })).toBeDisabled()
   })
 })

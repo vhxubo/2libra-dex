@@ -4,11 +4,35 @@ import { ArrowLeft, Search, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { cn } from '@/lib/utils'
 import { BADGES } from '../data'
-import type { BadgeRecord, CardIconMode } from '../types'
+import { ATTR_TYPES, BADGE_LEVELS, type AttrType, type BadgeRecord, type BadgeLevel, type CardIconMode } from '../types'
 import { GifMakerTool } from './GifMakerTool'
 
 interface GifNavigationState { badgeIds?: string[]; iconMode?: CardIconMode }
+
+/** 弹窗筛选用的小尺寸切换按钮，与生成页图标来源选择器同一风格。 */
+function PickerChip({
+  active,
+  className,
+  children,
+  ...props
+}: React.ComponentProps<'button'> & { active: boolean }) {
+  return (
+    <button
+      type="button"
+      aria-pressed={active}
+      className={cn(
+        'inline-flex h-7 items-center rounded-[6px] px-2.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+        active ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground',
+        className,
+      )}
+      {...props}
+    >
+      {children}
+    </button>
+  )
+}
 
 /** 独立 GIF 工具页：复用与徽章页弹窗相同的生成器，初始不要求选择徽章。 */
 export default function GifMakerPage() {
@@ -22,11 +46,31 @@ export default function GifMakerPage() {
   const [pickerCapacity, setPickerCapacity] = useState(0)
   const [pickerIds, setPickerIds] = useState<string[]>([])
   const [pickerQuery, setPickerQuery] = useState('')
+  const [pickerLevels, setPickerLevels] = useState<BadgeLevel[]>([])
+  const [pickerAttrType, setPickerAttrType] = useState<AttrType | null>(null)
   const selectedIds = useMemo(() => new Set(selectedBadges.map((badge) => badge.id)), [selectedBadges])
+  const pickerSelectedSet = useMemo(() => new Set(pickerIds), [pickerIds])
   const pickerBadges = useMemo(() => {
     const query = pickerQuery.trim().toLocaleLowerCase()
-    return BADGES.filter((badge) => !query || badge.name.toLocaleLowerCase().includes(query) || badge.id.toLocaleLowerCase().includes(query))
-  }, [pickerQuery])
+    const levels = new Set(pickerLevels)
+    return BADGES.filter((badge) =>
+      (!query || badge.name.toLocaleLowerCase().includes(query) || badge.id.toLocaleLowerCase().includes(query))
+      && (levels.size === 0 || levels.has(badge.level))
+      && (pickerAttrType === null || badge.attrType === pickerAttrType),
+    )
+  }, [pickerQuery, pickerLevels, pickerAttrType])
+  // 「全选当前」只收搜索 + 筛选后仍未加入的徽章，且不超过剩余名额
+  const remainingCapacity = pickerCapacity - pickerIds.length
+  const selectablePickerBadges = pickerBadges.filter((badge) => !selectedIds.has(badge.id) && !pickerSelectedSet.has(badge.id))
+  const selectAllDisabled = remainingCapacity <= 0 || selectablePickerBadges.length === 0
+  const selectAllCurrent = () => {
+    const additions = selectablePickerBadges.slice(0, remainingCapacity).map((badge) => badge.id)
+    if (additions.length === 0) return
+    setPickerIds((prev) => [...prev, ...additions])
+  }
+  const togglePickerLevel = (level: BadgeLevel) => {
+    setPickerLevels((prev) => prev.includes(level) ? prev.filter((item) => item !== level) : [...prev, level])
+  }
 
   return (
     <div className="mx-auto w-full max-w-4xl px-4 py-6 sm:py-8">
@@ -45,7 +89,7 @@ export default function GifMakerPage() {
         iconSourceOverride={iconSource}
         onIconSourceChange={setIconSource}
         onRemoveBadge={(id) => setSelectedBadges((prev) => prev.filter((badge) => badge.id !== id))}
-        onRequestAddBadges={(available) => { setPickerCapacity(available); setPickerIds([]); setPickerQuery(''); setPickerOpen(true) }}
+        onRequestAddBadges={(available) => { setPickerCapacity(available); setPickerIds([]); setPickerQuery(''); setPickerLevels([]); setPickerAttrType(null); setPickerOpen(true) }}
         onClearBadges={() => setSelectedBadges([])}
       />
       <Dialog open={pickerOpen} onOpenChange={setPickerOpen}>
@@ -65,6 +109,21 @@ export default function GifMakerPage() {
               <Input value={pickerQuery} onChange={(event) => setPickerQuery(event.target.value)} placeholder="搜索徽章名称或 ID" aria-label="搜索图鉴徽章" className="pl-9 pr-9" />
               {pickerQuery && <button type="button" aria-label="清空搜索" onClick={() => setPickerQuery('')} className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-muted-foreground hover:text-foreground"><X className="size-4" aria-hidden /></button>}
             </div>
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <div role="group" aria-label="按等级筛选" className="inline-flex items-center rounded-md border border-input bg-card p-0.5">
+                <PickerChip active={pickerLevels.length === 0} onClick={() => setPickerLevels([])}>全部等级</PickerChip>
+                {BADGE_LEVELS.map((level) => (
+                  <PickerChip key={level} active={pickerLevels.includes(level)} onClick={() => togglePickerLevel(level)}>{level}</PickerChip>
+                ))}
+              </div>
+              <div role="group" aria-label="按属性类型筛选" className="inline-flex items-center rounded-md border border-input bg-card p-0.5">
+                <PickerChip active={pickerAttrType === null} onClick={() => setPickerAttrType(null)}>全部属性</PickerChip>
+                {ATTR_TYPES.map((attrType) => (
+                  <PickerChip key={attrType} active={pickerAttrType === attrType} onClick={() => setPickerAttrType(pickerAttrType === attrType ? null : attrType)}>{attrType}</PickerChip>
+                ))}
+              </div>
+              <Button type="button" size="sm" variant="outline" className="ms-auto" disabled={selectAllDisabled} onClick={selectAllCurrent}>全选当前</Button>
+            </div>
           </DialogHeader>
           <div className="min-h-0 flex-1 overflow-y-auto p-4">
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
@@ -80,7 +139,7 @@ export default function GifMakerPage() {
           {pickerBadges.length === 0 && <p className="py-12 text-center text-sm text-muted-foreground">没有匹配的徽章</p>}
           </div>
           <div className="flex shrink-0 items-center justify-between gap-3 border-t bg-card px-5 py-3">
-            <span className="text-xs text-muted-foreground" aria-live="polite">找到 {pickerBadges.length} 枚徽章</span>
+            <span className="text-xs text-muted-foreground" aria-live="polite">找到 {pickerBadges.length} 枚徽章 · 还可选 {Math.max(0, remainingCapacity)} 枚</span>
             <div className="flex gap-2">
             <Button variant="outline" onClick={() => setPickerOpen(false)}>取消</Button>
             <Button disabled={pickerIds.length === 0} onClick={() => { setSelectedBadges((prev) => [...prev, ...pickerIds.map((id) => BADGES.find((badge) => badge.id === id)).filter((badge): badge is BadgeRecord => badge !== undefined)]); setPickerOpen(false) }}>添加 {pickerIds.length || ''} 枚</Button>
