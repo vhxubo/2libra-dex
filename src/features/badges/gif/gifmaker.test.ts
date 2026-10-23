@@ -4,7 +4,7 @@ import {
   COLOR_LADDER,
   DEFAULT_DELAY_MS,
   DEFAULT_EFFECT,
-  DELAY_OPTIONS,
+  DELAY_STEP_MS,
   GifCancelledError,
   MAX_DELAY_MS,
   MIN_DELAY_MS,
@@ -26,21 +26,23 @@ import {
 } from './gifmaker'
 
 describe('帧间隔', () => {
-  it('默认间隔为 400ms，档位值正确', () => {
-    expect(DEFAULT_DELAY_MS).toBe(400)
-    expect([...DELAY_OPTIONS]).toEqual([100, 200, 400, 600, 800, 1200, 2000])
+  it('默认间隔为 200ms，步长 100ms，范围 100–2000ms', () => {
+    expect(DEFAULT_DELAY_MS).toBe(200)
+    expect(DELAY_STEP_MS).toBe(100)
+    expect(MIN_DELAY_MS).toBe(100)
+    expect(MAX_DELAY_MS).toBe(2000)
   })
 
-  it('输入被限制在 100–2000ms 并按 10ms 取整', () => {
-    expect(normalizeDelayMs(400)).toBe(400)
+  it('输入被限制在 100–2000ms 并按 100ms 取整', () => {
+    expect(normalizeDelayMs(200)).toBe(200)
     expect(normalizeDelayMs(100)).toBe(100)
     expect(normalizeDelayMs(50)).toBe(MIN_DELAY_MS)
     expect(normalizeDelayMs(1)).toBe(MIN_DELAY_MS)
     expect(normalizeDelayMs(5000)).toBe(MAX_DELAY_MS)
     expect(normalizeDelayMs(2001)).toBe(MAX_DELAY_MS)
-    expect(normalizeDelayMs(212)).toBe(210)
-    expect(normalizeDelayMs(215)).toBe(220)
-    expect(normalizeDelayMs(432)).toBe(430)
+    expect(normalizeDelayMs(212)).toBe(200)
+    expect(normalizeDelayMs(250)).toBe(300)
+    expect(normalizeDelayMs(432)).toBe(400)
     expect(normalizeDelayMs(Number.NaN)).toBe(DEFAULT_DELAY_MS)
     expect(normalizeDelayMs(Number.POSITIVE_INFINITY)).toBe(MAX_DELAY_MS)
   })
@@ -110,7 +112,7 @@ describe('computeTransitionPlan', () => {
   })
 
   it('过渡时长不超过间隔的 25% 或 220ms，采样 4–8 帧', () => {
-    for (const delay of DELAY_OPTIONS) {
+    for (const delay of [100, 200, 400, 600, 800, 1200, 2000]) {
       for (const effect of GIF_EFFECTS) {
         const { steps, frameMs } = computeTransitionPlan(delay, effect)
         if (effect === 'cut') continue

@@ -18,13 +18,10 @@ export const FRAME_BACKGROUND = '#ffffff'
 export const MIN_DELAY_MS = 100
 /** 间隔上限：更慢的轮播更适合逐帧查看，但 GIF 显得停滞。 */
 export const MAX_DELAY_MS = 2000
-/** GIF 时间精度为百分之一秒，输入统一取整到 10ms。 */
-export const DELAY_STEP_MS = 10
-/** 默认间隔 400ms，对应“快速”档。 */
-export const DEFAULT_DELAY_MS = 400
-
-/** 常用间隔档位（ms）。 */
-export const DELAY_OPTIONS = [100, 200, 400, 600, 800, 1200, 2000] as const
+/** 数值输入框步长（ms），间隔统一取整到 100ms。 */
+export const DELAY_STEP_MS = 100
+/** 默认间隔 200ms。 */
+export const DEFAULT_DELAY_MS = 200
 
 // ===== 帧数限制 =====
 
@@ -124,17 +121,19 @@ export class GifCancelledError extends Error {
 
 // ===== 纯工具函数 =====
 
-/** 限制到 100–2000ms 并取整到 10ms，匹配 GIF 时间精度。 */
+/** 限制到 100–2000ms 并取整到 100ms 步长，与输入框行为一致。 */
 export function normalizeDelayMs(value: number): number {
   // NaN 无从钳位，回落默认；±Infinity 交给钳位处理
   if (Number.isNaN(value)) return DEFAULT_DELAY_MS
   const clamped = Math.min(MAX_DELAY_MS, Math.max(MIN_DELAY_MS, value))
-  return roundToStep(clamped)
+  return Math.round(clamped / DELAY_STEP_MS) * DELAY_STEP_MS
 }
 
-/** 纯 10ms 取整，不做范围钳位；过渡帧时长可以低于 200ms。 */
-function roundToStep(value: number): number {
-  return Math.round(value / DELAY_STEP_MS) * DELAY_STEP_MS
+/** 过渡帧按 10ms 取整（GIF 时间精度为百分之一秒），不做范围钳位；过渡帧时长可以低于 100ms。 */
+const TRANSITION_FRAME_STEP_MS = 10
+
+function roundTransitionFrameMs(value: number): number {
+  return Math.round(value / TRANSITION_FRAME_STEP_MS) * TRANSITION_FRAME_STEP_MS
 }
 
 /** 帧数不满足生成条件时返回原因，否则返回 null。 */
@@ -182,7 +181,7 @@ export function computeTransitionPlan(delayMs: number, effect: GifEffect): Trans
   const cap = delay < 800 ? delay * 0.4 : MAX_TRANSITION_MS
   const duration = Math.min(delay * 0.25, cap)
   const steps = Math.min(MAX_TRANSITION_STEPS, Math.max(MIN_TRANSITION_STEPS, Math.round(duration / 40)))
-  const frameMs = Math.max(MIN_TRANSITION_FRAME_MS, roundToStep(duration / steps))
+  const frameMs = Math.max(MIN_TRANSITION_FRAME_MS, roundTransitionFrameMs(duration / steps))
   return { steps, frameMs }
 }
 

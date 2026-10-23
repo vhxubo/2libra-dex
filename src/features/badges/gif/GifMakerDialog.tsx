@@ -19,6 +19,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
 import { BadgeImage } from '../components/BadgeImage'
 import type { BadgeRecord } from '../types'
@@ -27,11 +28,13 @@ import {
   COLOR_LADDER,
   DEFAULT_DELAY_MS,
   DEFAULT_EFFECT,
-  DELAY_OPTIONS,
+  DELAY_STEP_MS,
   EFFECT_GROUPS,
   EFFECT_LABELS,
   GifCancelledError,
   ICON_SOURCE_LABELS,
+  MAX_DELAY_MS,
+  MIN_DELAY_MS,
   formatSeconds,
   iconUrlFor,
   isGifEffect,
@@ -100,7 +103,8 @@ export function GifMakerDialog({
 }: GifMakerDialogProps) {
   // 出场顺序为弹窗内本地状态，每次打开随挂载重建
   const [order, setOrder] = useState<string[]>(() => badges.map((badge) => badge.id))
-  const [delayMs, setDelayMs] = useState<number>(DEFAULT_DELAY_MS)
+  // 间隔以文本态保存，容忍输入过程中的临时值（空串、未敲完的数字），失焦时钳位回写
+  const [delayInput, setDelayInput] = useState<string>(String(DEFAULT_DELAY_MS))
   const [effect, setEffect] = useState<GifEffect>(readStoredEffect)
   const [iconSource, setIconSource] = useState<GifIconSource>(defaultIconSource)
   const [generation, setGeneration] = useState<GenerateState>({ phase: 'idle' })
@@ -130,7 +134,7 @@ export function GifMakerDialog({
 
   const generating = generation.phase === 'generating'
   const frameError = validateFrameCount(orderedBadges.length)
-  const normalizedDelay = normalizeDelayMs(delayMs)
+  const normalizedDelay = normalizeDelayMs(Number(delayInput))
 
   // 卸载时取消在途任务并释放预览 URL
   useEffect(() => {
@@ -169,6 +173,18 @@ export function GifMakerDialog({
     if (generating) return
     markConfigChanged()
     onRemoveBadge(id)
+  }
+
+  // 仅在有效间隔变化时使旧结果失效；临时文本编辑（如删空重输）不打扰预览
+  const handleDelayChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const next = event.target.value
+    if (normalizeDelayMs(Number(next)) !== normalizedDelay) markConfigChanged()
+    setDelayInput(next)
+  }
+
+  // 失焦时把临时值钳位回写到合法间隔，摘要与生成始终使用 normalizedDelay
+  const handleDelayBlur = () => {
+    setDelayInput(String(normalizedDelay))
   }
 
   const handleGenerate = async () => {
@@ -356,35 +372,24 @@ export function GifMakerDialog({
             )}
           </section>
 
-          <section aria-label="每帧停留时长">
-            <h3 className="mb-2 text-sm font-medium">每帧停留</h3>
-            <div
-              role="group"
-              aria-label="选择每帧停留时长"
-              className="inline-flex flex-wrap items-center rounded-md border border-input bg-card p-0.5"
-            >
-              {DELAY_OPTIONS.map((option) => (
-                <button
-                  key={option}
-                  type="button"
-                  aria-pressed={delayMs === option}
-                  disabled={generating}
-                  onClick={() => {
-                    if (delayMs !== option) {
-                      markConfigChanged()
-                      setDelayMs(option)
-                    }
-                  }}
-                  className={cn(
-                    'inline-flex h-8 items-center rounded-[6px] px-2.5 text-xs font-medium tabular-nums transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50',
-                    delayMs === option
-                      ? 'bg-primary text-primary-foreground'
-                      : 'text-muted-foreground hover:text-foreground',
-                  )}
-                >
-                  {formatSeconds(option)}
-                </button>
-              ))}
+          <section aria-label="每帧间隔">
+            <h3 className="mb-2 text-sm font-medium">每帧间隔</h3>
+            <div className="flex items-center gap-2">
+              <Input
+                type="number"
+                aria-label="每帧间隔毫秒数"
+                value={delayInput}
+                min={MIN_DELAY_MS}
+                max={MAX_DELAY_MS}
+                step={DELAY_STEP_MS}
+                disabled={generating}
+                onChange={handleDelayChange}
+                onBlur={handleDelayBlur}
+                className="h-8 w-24 rounded-[6px] tabular-nums"
+              />
+              <span className="text-xs text-muted-foreground">
+                毫秒（{MIN_DELAY_MS}–{MAX_DELAY_MS}，步长 {DELAY_STEP_MS}）
+              </span>
             </div>
           </section>
 

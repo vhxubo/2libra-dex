@@ -115,10 +115,10 @@ afterEach(() => {
 })
 
 describe('GifMakerDialog 默认配置与摘要', () => {
-  it('默认间隔 400ms、直接切换、高清大图标，并显示预计摘要', () => {
+  it('默认间隔 200ms、直接切换、高清大图标，并显示预计摘要', () => {
     renderDialog()
 
-    expect(screen.getByRole('button', { name: '0.4 秒' })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByLabelText('每帧间隔毫秒数')).toHaveValue(200)
     expect(screen.getByRole('button', { name: '直接切换' })).toHaveAttribute(
       'aria-pressed',
       'true',
@@ -128,8 +128,28 @@ describe('GifMakerDialog 默认配置与摘要', () => {
       'true',
     )
     expect(screen.getByText(/生成在本地完成/).textContent).toContain(
-      '3 帧 · 每帧 0.4 秒 · 直接切换 · 高清大图标 · 总时长约 1.2 秒',
+      '3 帧 · 每帧 0.2 秒 · 直接切换 · 高清大图标 · 总时长约 0.6 秒',
     )
+  })
+
+  it('间隔输入低于下限或高于上限时失焦钳位，生成使用钳位后的值', async () => {
+    const user = userEvent.setup()
+    const calls = setupMakeGif()
+    renderDialog()
+    const delayInput = screen.getByLabelText('每帧间隔毫秒数')
+
+    await user.clear(delayInput)
+    await user.type(delayInput, '50')
+    await user.tab()
+    expect(delayInput).toHaveValue(100)
+
+    await user.clear(delayInput)
+    await user.type(delayInput, '5000')
+    await user.tab()
+    expect(delayInput).toHaveValue(2000)
+
+    await user.click(screen.getByRole('button', { name: '生成 GIF' }))
+    expect(calls[0]?.options.delayMs).toBe(2000)
   })
 
   it('选择小图标来源后显示提示，并以小图标配置发起生成', async () => {
@@ -213,7 +233,7 @@ describe('GifMakerDialog 生成期间锁定与取消', () => {
     expect(screen.getByRole('button', { name: '徽章乙 前移' })).toBeDisabled()
     expect(screen.getByRole('button', { name: '徽章乙 后移' })).toBeDisabled()
     expect(screen.getByRole('button', { name: '移除 徽章乙' })).toBeDisabled()
-    expect(screen.getByRole('button', { name: '0.6 秒' })).toBeDisabled()
+    expect(screen.getByLabelText('每帧间隔毫秒数')).toBeDisabled()
     expect(screen.getByRole('button', { name: '淡入淡出' })).toBeDisabled()
     expect(screen.getByRole('button', { name: '使用小图标' })).toBeDisabled()
     expect(screen.queryByRole('button', { name: '生成 GIF' })).not.toBeInTheDocument()
@@ -316,7 +336,9 @@ describe('GifMakerDialog 成功与失败', () => {
     expect(screen.getByAltText('徽章轮播 GIF 预览')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: '重新生成' })).toBeEnabled()
 
-    await user.click(screen.getByRole('button', { name: '0.6 秒' }))
+    const delayInput = screen.getByLabelText('每帧间隔毫秒数')
+    await user.clear(delayInput)
+    await user.type(delayInput, '600')
     expect(screen.getByText(/配置已变更/)).toBeInTheDocument()
     // 失效后下载入口保留但不再是可导航链接（无 href，不暴露 link 语义）
     expect(screen.queryByRole('link', { name: '下载 GIF' })).not.toBeInTheDocument()
@@ -337,8 +359,8 @@ describe('GifMakerDialog 成功与失败', () => {
     const alert = await screen.findByRole('alert')
     expect(alert.textContent).toContain('徽章「徽章甲」图标加载失败')
 
-    // 配置保持不变：间隔仍是 400ms、效果仍是直接切换
-    expect(screen.getByRole('button', { name: '0.4 秒' })).toHaveAttribute('aria-pressed', 'true')
+    // 配置保持不变：间隔仍是 200ms、效果仍是直接切换
+    expect(screen.getByLabelText('每帧间隔毫秒数')).toHaveValue(200)
     expect(screen.getByRole('button', { name: '直接切换' })).toHaveAttribute(
       'aria-pressed',
       'true',
@@ -346,7 +368,7 @@ describe('GifMakerDialog 成功与失败', () => {
 
     await user.click(screen.getByRole('button', { name: '重试' }))
     expect(makeGifMock).toHaveBeenCalledTimes(2)
-    expect(calls[1]?.options).toEqual({ delayMs: 400, effect: 'cut', iconSource: 'large' })
+    expect(calls[1]?.options).toEqual({ delayMs: 200, effect: 'cut', iconSource: 'large' })
     expect(screen.getByText(/正在生成/)).toBeInTheDocument()
   })
 
