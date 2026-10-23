@@ -26,6 +26,8 @@ export const DEFAULT_DELAY_MS = 200
 // ===== 帧数限制 =====
 
 export const MIN_FRAME_COUNT = 2
+export const MAX_FRAME_COUNT = 60
+const MAX_INPUT_PIXELS = 24_000_000
 
 // ===== 切换效果 =====
 
@@ -128,9 +130,6 @@ export interface GifMakerOptions {
   spinStepDeg: number
 }
 
-/** 通用 GIF 帧，徽章和用户图片共用同一编码流程。 */
-export interface GifFrameInput { id: string; name: string; src: string }
-
 /** 通用 GIF 帧输入，支持徽章来源或用户提供的图片 URL。 */
 export interface GifFrameInput {
   id: string
@@ -175,6 +174,7 @@ function roundTransitionFrameMs(value: number): number {
 
 /** 帧数不足生成条件时返回原因，否则返回 null。 */
 export function validateFrameCount(count: number): string | null {
+  if (count > MAX_FRAME_COUNT) return `最多支持 ${MAX_FRAME_COUNT} 帧，请移除部分图片`
   if (count < MIN_FRAME_COUNT) {
     return `至少选择 ${MIN_FRAME_COUNT} 枚徽章才能生成轮播`
   }
@@ -332,7 +332,7 @@ export function loadBadgeImage(
 // ===== 帧渲染 =====
 
 export interface FrameSource {
-  image: HTMLImageElement
+  image: HTMLImageElement | HTMLCanvasElement
   layout: FrameLayout
 }
 
@@ -807,16 +807,24 @@ export async function makeGif(
   const frameError = validateFrameCount(badges.length)
   if (frameError !== null) throw new Error(frameError)
   try {
-    const images = await Promise.all(badges.map((badge) =>
-      'exportIcon' in badge
-        ? loadBadgeImage(badge, options.iconSource, signal)
-        : loadImageUrl(badge.src, signal),
-    ))
-    throwIfAborted(signal)
-    const sources: FrameSource[] = images.map((image) => ({
-      image,
-      layout: computeFrameLayout(image.naturalWidth, image.naturalHeight),
-    }))
+    // 顺序加载并立即缩放，不保留整批原始分辨率图片。
+    const sources: FrameSource[] = []
+    for (const badge of badges) {
+      throwIfAborted(signal)
+      const image = 'exportIcon' in badge
+        ? await loadBadgeImage(badge, options.iconSource, signal)
+        : await loadImageUrl(badge.src, signal)
+      throwIfAborted(signal)
+      if (image.naturalWidth * image.naturalHeight > MAX_INPUT_PIXELS) {
+        throw new Error('图片超过 2400 万像素，请缩小后重试')
+      }
+      const ctx = createCanvasContext(GIF_SIZE)
+      ctx.drawImage(image, 0, 0, GIF_SIZE, GIF_SIZE)
+      sources.push({
+        image: ctx.canvas,
+        layout: computeFrameLayout(image.naturalWidth, image.naturalHeight),
+      })
+    }
     const specs = buildFramePlan(badges.length, options)
     const picked = await encodeWithinLimit(COLOR_LADDER, async (maxColors, attempt) => {
       const blob = await encodeGif(

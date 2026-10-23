@@ -1,9 +1,9 @@
-import { act, render, screen, waitFor, within } from '@testing-library/react'
+import { act, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { BadgeRecord } from '../types'
 import { GifCancelledError } from './gifmaker'
-import { GifMakerDialog, type GifMakerDialogProps } from './GifMakerDialog'
+import { GifMakerTool, type GifMakerToolProps } from './GifMakerTool'
 
 const makeGifMock = vi.fn()
 vi.mock('./gifmaker', async (importOriginal) => {
@@ -68,25 +68,22 @@ function setupMakeGif(): MakeGifCall[] {
   return calls
 }
 
-function renderDialog(props: Partial<GifMakerDialogProps> = {}) {
-  const onOpenChange = vi.fn()
+function renderTool(props: Partial<GifMakerToolProps> = {}) {
   const onRemoveBadge = vi.fn()
   const utils = render(
-    <GifMakerDialog
+    <GifMakerTool
       badges={badges}
       defaultIconSource="large"
-      onOpenChange={onOpenChange}
       onRemoveBadge={onRemoveBadge}
       {...props}
     />,
   )
-  return { ...utils, onOpenChange, onRemoveBadge }
+  return { ...utils, onRemoveBadge }
 }
 
 /** 出场顺序与效果预览里当前展示的图标地址。 */
 function chipIconSrc(name: string): string | null {
-  const dialog = screen.getByRole('dialog')
-  return within(dialog).getByAltText(name).getAttribute('src')
+  return screen.getByAltText(name).getAttribute('src')
 }
 
 function previewIconSrcs(): (string | null)[] {
@@ -114,9 +111,9 @@ afterEach(() => {
   vi.clearAllMocks()
 })
 
-describe('GifMakerDialog 默认配置与摘要', () => {
+describe('GifMakerTool 默认配置与摘要', () => {
   it('默认间隔 200ms、直接切换、高清大图标，并显示预计摘要', () => {
-    renderDialog()
+    renderTool()
 
     expect(screen.getByLabelText('每帧间隔毫秒数')).toHaveValue(200)
     expect(screen.getByRole('button', { name: '直接切换' })).toHaveAttribute(
@@ -135,7 +132,7 @@ describe('GifMakerDialog 默认配置与摘要', () => {
   it('间隔输入低于下限或高于上限时失焦钳位，生成使用钳位后的值', async () => {
     const user = userEvent.setup()
     const calls = setupMakeGif()
-    renderDialog()
+    renderTool()
     const delayInput = screen.getByLabelText('每帧间隔毫秒数')
 
     await user.clear(delayInput)
@@ -155,7 +152,7 @@ describe('GifMakerDialog 默认配置与摘要', () => {
   it('选择小图标来源后显示提示，并以小图标配置发起生成', async () => {
     const user = userEvent.setup()
     const calls = setupMakeGif()
-    renderDialog()
+    renderTool()
 
     await user.click(screen.getByRole('button', { name: '使用小图标' }))
     expect(screen.getByText(/文件更小、生成更快/)).toBeInTheDocument()
@@ -165,7 +162,7 @@ describe('GifMakerDialog 默认配置与摘要', () => {
   })
 
   it('图标来源默认取外部传入值：小图标时出场顺序与效果预览都用小图标', () => {
-    renderDialog({ defaultIconSource: 'small' })
+    renderTool({ defaultIconSource: 'small' })
 
     expect(screen.getByRole('button', { name: '使用小图标' })).toHaveAttribute(
       'aria-pressed',
@@ -175,9 +172,9 @@ describe('GifMakerDialog 默认配置与摘要', () => {
     expect(previewIconSrcs().every((src) => src?.includes('/badge/svg/'))).toBe(true)
   })
 
-  it('弹窗内切换图标来源，出场顺序与效果预览同步换源', async () => {
+  it('工具内切换图标来源，出场顺序与效果预览同步换源', async () => {
     const user = userEvent.setup()
-    renderDialog({ defaultIconSource: 'large' })
+    renderTool({ defaultIconSource: 'large' })
 
     await user.click(screen.getByRole('button', { name: '使用小图标' }))
 
@@ -192,12 +189,12 @@ describe('GifMakerDialog 默认配置与摘要', () => {
 
   it('切换效果会被记住，下次打开默认使用上次效果', async () => {
     const user = userEvent.setup()
-    const { unmount } = renderDialog()
+    const { unmount } = renderTool()
     await user.click(screen.getByRole('button', { name: '淡入淡出' }))
     expect(window.localStorage.getItem('gif-maker:effect')).toBe('fade')
     unmount()
 
-    renderDialog()
+    renderTool()
     expect(screen.getByRole('button', { name: '淡入淡出' })).toHaveAttribute(
       'aria-pressed',
       'true',
@@ -205,11 +202,11 @@ describe('GifMakerDialog 默认配置与摘要', () => {
   })
 })
 
-describe('GifMakerDialog 逐帧旋转', () => {
+describe('GifMakerTool 逐帧旋转', () => {
   it('选择逐帧旋转后显示角度输入，默认取 360/帧数，摘要附带步进角并以配置生成', async () => {
     const user = userEvent.setup()
     const calls = setupMakeGif()
-    renderDialog()
+    renderTool()
 
     expect(screen.queryByLabelText('逐帧旋转步进角度')).not.toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: '逐帧旋转' }))
@@ -225,15 +222,14 @@ describe('GifMakerDialog 逐帧旋转', () => {
 
   it('默认步进角随帧数变化（360/帧数），手动调整后不再自动跟随', async () => {
     const user = userEvent.setup()
-    const { rerender, onOpenChange, onRemoveBadge } = renderDialog()
+    const { rerender, onRemoveBadge } = renderTool()
     await user.click(screen.getByRole('button', { name: '逐帧旋转' }))
     expect(screen.getByLabelText('逐帧旋转步进角度')).toHaveValue(120)
 
     rerender(
-      <GifMakerDialog
+      <GifMakerTool
         badges={badges.slice(0, 2)}
         defaultIconSource="large"
-        onOpenChange={onOpenChange}
         onRemoveBadge={onRemoveBadge}
       />,
     )
@@ -247,10 +243,9 @@ describe('GifMakerDialog 逐帧旋转', () => {
     expect(input).toHaveValue(90)
 
     rerender(
-      <GifMakerDialog
+      <GifMakerTool
         badges={badges}
         defaultIconSource="large"
-        onOpenChange={onOpenChange}
         onRemoveBadge={onRemoveBadge}
       />,
     )
@@ -260,7 +255,7 @@ describe('GifMakerDialog 逐帧旋转', () => {
   it('支持负角度：修改步进角后按新角度生成', async () => {
     const user = userEvent.setup()
     const calls = setupMakeGif()
-    renderDialog()
+    renderTool()
     await user.click(screen.getByRole('button', { name: '逐帧旋转' }))
 
     const input = screen.getByLabelText('逐帧旋转步进角度')
@@ -276,7 +271,7 @@ describe('GifMakerDialog 逐帧旋转', () => {
 
   it('步进角超界时失焦钳位到 ±180', async () => {
     const user = userEvent.setup()
-    renderDialog()
+    renderTool()
     await user.click(screen.getByRole('button', { name: '逐帧旋转' }))
 
     const input = screen.getByLabelText('逐帧旋转步进角度')
@@ -293,7 +288,7 @@ describe('GifMakerDialog 逐帧旋转', () => {
 
   it('切换到其他效果后隐藏角度输入，生成不携带旋转配置变化', async () => {
     const user = userEvent.setup()
-    renderDialog()
+    renderTool()
     await user.click(screen.getByRole('button', { name: '逐帧旋转' }))
     expect(screen.getByLabelText('逐帧旋转步进角度')).toBeInTheDocument()
 
@@ -303,32 +298,32 @@ describe('GifMakerDialog 逐帧旋转', () => {
   })
 })
 
-describe('GifMakerDialog 帧数校验', () => {
+describe('GifMakerTool 帧数校验', () => {
   it('少于 2 枚时禁用生成并说明原因', () => {
-    renderDialog({ badges: [makeBadge('only')] })
+    renderTool({ badges: [makeBadge('only')] })
 
     expect(screen.getByRole('button', { name: '生成 GIF' })).toBeDisabled()
     expect(screen.getByText(/至少选择 2 枚徽章才能生成轮播/)).toBeInTheDocument()
   })
 
   it('超过 12 枚时仍允许生成', () => {
-    renderDialog({ badges: Array.from({ length: 13 }, (_, i) => makeBadge(`b${i}`)) })
+    renderTool({ badges: Array.from({ length: 13 }, (_, i) => makeBadge(`b${i}`)) })
 
     expect(screen.getByRole('button', { name: '生成 GIF' })).toBeEnabled()
     expect(screen.queryByText(/最多支持 12 帧/)).not.toBeInTheDocument()
   })
 
-  it('仅有本地图片时隐藏图鉴图标大小', () => {
-    renderDialog({ badges: [] })
-    expect(screen.queryByRole('region', { name: '图鉴图标大小' })).not.toBeInTheDocument()
+  it('未选择徽章时仍提供图鉴图标大小', () => {
+    renderTool({ badges: [] })
+    expect(screen.getByRole('region', { name: '图鉴图标大小' })).toBeInTheDocument()
   })
 })
 
-describe('GifMakerDialog 生成期间锁定与取消', () => {
+describe('GifMakerTool 生成期间锁定与取消', () => {
   it('生成期间排序、删除、间隔、效果和图标来源均禁用，生成按钮变为取消', async () => {
     const user = userEvent.setup()
     setupMakeGif()
-    renderDialog()
+    renderTool()
 
     await user.click(screen.getByRole('button', { name: '生成 GIF' }))
     expect(screen.getByText(/正在生成第 0\/3 帧/)).toBeInTheDocument()
@@ -348,7 +343,7 @@ describe('GifMakerDialog 生成期间锁定与取消', () => {
   it('取消后停止任务、恢复可编辑状态，且不创建下载 URL', async () => {
     const user = userEvent.setup()
     const calls = setupMakeGif()
-    renderDialog()
+    renderTool()
 
     await user.click(screen.getByRole('button', { name: '生成 GIF' }))
     await user.click(screen.getByRole('button', { name: '取消生成' }))
@@ -363,7 +358,7 @@ describe('GifMakerDialog 生成期间锁定与取消', () => {
   it('进度显示重编码轮次，例如“第 2 次编码（128 色）”', async () => {
     const user = userEvent.setup()
     const calls = setupMakeGif()
-    renderDialog()
+    renderTool()
 
     await user.click(screen.getByRole('button', { name: '生成 GIF' }))
     await act(async () => {
@@ -375,56 +370,11 @@ describe('GifMakerDialog 生成期间锁定与取消', () => {
   })
 })
 
-describe('GifMakerDialog 关闭确认', () => {
-  it('生成期间关闭需确认：继续生成保持任务，取消并关闭释放任务', async () => {
-    const user = userEvent.setup()
-    const calls = setupMakeGif()
-    const { onOpenChange } = renderDialog()
-
-    await user.click(screen.getByRole('button', { name: '生成 GIF' }))
-    await user.click(screen.getByRole('button', { name: '关闭弹窗' }))
-    expect(onOpenChange).not.toHaveBeenCalled()
-
-    const confirmBox = screen.getByRole('alertdialog', { name: '确认关闭' })
-    await user.click(within(confirmBox).getByRole('button', { name: '继续生成' }))
-    expect(screen.getByText(/正在生成/)).toBeInTheDocument()
-    expect(calls[0]?.signal?.aborted).toBe(false)
-
-    await user.click(screen.getByRole('button', { name: '关闭弹窗' }))
-    await user.click(within(screen.getByRole('alertdialog', { name: '确认关闭' })).getByRole('button', { name: '取消并关闭' }))
-    expect(calls[0]?.signal?.aborted).toBe(true)
-    expect(onOpenChange).toHaveBeenCalledWith(false)
-  })
-
-  it('被丢弃的旧任务完成时不会更新状态，也不会创建下载 URL', async () => {
-    const user = userEvent.setup()
-    const calls = setupMakeGif()
-    const { onOpenChange } = renderDialog()
-
-    await user.click(screen.getByRole('button', { name: '生成 GIF' }))
-    // 确认取消并关闭会递增请求号但不卸载组件（测试里由调用方决定是否卸载）
-    await user.click(screen.getByRole('button', { name: '关闭弹窗' }))
-    await user.click(
-      within(screen.getByRole('alertdialog', { name: '确认关闭' })).getByRole('button', {
-        name: '取消并关闭',
-      }),
-    )
-    expect(onOpenChange).toHaveBeenCalledWith(false)
-
-    await act(async () => {
-      calls[0]?.resolve(new Blob(['gif'], { type: 'image/gif' }))
-    })
-    await waitFor(() => expect(screen.getByText(/正在生成/)).toBeInTheDocument())
-    expect(createObjectURLMock).not.toHaveBeenCalled()
-    expect(screen.queryByRole('link', { name: '下载 GIF' })).not.toBeInTheDocument()
-  })
-})
-
-describe('GifMakerDialog 成功与失败', () => {
+describe('GifMakerTool 成功与失败', () => {
   it('成功后保留预览并提供下载；修改配置后旧预览标记过期且不可下载', async () => {
     const user = userEvent.setup()
     const calls = setupMakeGif()
-    renderDialog()
+    renderTool()
 
     await user.click(screen.getByRole('button', { name: '生成 GIF' }))
     await act(async () => {
@@ -453,7 +403,7 @@ describe('GifMakerDialog 成功与失败', () => {
   it('失败后保留原配置并提供重试，重试沿用相同配置', async () => {
     const user = userEvent.setup()
     const calls = setupMakeGif()
-    renderDialog()
+    renderTool()
 
     await user.click(screen.getByRole('button', { name: '生成 GIF' }))
     await act(async () => {
@@ -483,11 +433,42 @@ describe('GifMakerDialog 成功与失败', () => {
   it('调整顺序后再生成，按新顺序编码', async () => {
     const user = userEvent.setup()
     const calls = setupMakeGif()
-    renderDialog()
+    renderTool()
 
     await user.click(screen.getByRole('button', { name: '徽章乙 前移' }))
     await user.click(screen.getByRole('button', { name: '生成 GIF' }))
 
     expect(calls[0]?.badges.map((badge) => badge.id)).toEqual(['b', 'a', 'c'])
+  })
+})
+
+
+describe('帧变更与资源释放', () => {
+  it('外部追加徽章后旧结果不能下载', async () => {
+    const user = userEvent.setup()
+    const calls = setupMakeGif()
+    const { rerender, onRemoveBadge } = renderTool({ badges: badges.slice(0, 2) })
+    await user.click(screen.getByRole('button', { name: '生成 GIF' }))
+    await act(async () => calls[0]?.resolve(new Blob(['gif'])))
+    expect(screen.getByRole('link', { name: '下载 GIF' })).toHaveAttribute('href')
+    rerender(<GifMakerTool badges={badges} defaultIconSource="large" onRemoveBadge={onRemoveBadge} />)
+    expect(screen.getByText(/配置已变更/)).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: '下载 GIF' })).not.toBeInTheDocument()
+  })
+
+  it('移除和清空本地帧立即释放 URL，卸载不重复释放', async () => {
+    const user = userEvent.setup()
+    const { unmount } = renderTool({ badges: [] })
+    const input = screen.getByLabelText('上传本地图片')
+    await user.upload(input, [new File(['a'], 'a.png', { type: 'image/png' }), new File(['b'], 'b.png', { type: 'image/png' })])
+    const urls = createObjectURLMock.mock.results.map((result) => result.value)
+    await user.click(screen.getByRole('button', { name: '移除 a.png' }))
+    await user.click(screen.getByRole('button', { name: '确认移除' }))
+    expect(URL.revokeObjectURL).toHaveBeenCalledWith(urls[0])
+    await user.click(screen.getByRole('button', { name: '一键清空' }))
+    await user.click(screen.getByRole('button', { name: '确认清空' }))
+    expect(URL.revokeObjectURL).toHaveBeenCalledWith(urls[1])
+    unmount()
+    expect(URL.revokeObjectURL).toHaveBeenCalledTimes(2)
   })
 })

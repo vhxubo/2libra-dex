@@ -299,7 +299,7 @@ describe('makeGif 外链图片', () => {
     }))
 
     await expect(makeGif(frames, defaultOptions)).rejects.toThrow('本地上传')
-    expect(requested).toEqual(frames.map((frame) => ({
+    expect(requested).toEqual(frames.slice(0, 1).map((frame) => ({
       url: frame.src, crossOrigin: 'anonymous',
     })))
   })
@@ -386,5 +386,35 @@ describe('逐帧旋转（spin）', () => {
     const plan = buildFramePlan(4, { delayMs: 400, effect: 'spin' })
     expect(plan).toHaveLength(4)
     expect(plan.every((frame) => frame.kind === 'hold' && frame.delayMs === 400)).toBe(true)
+  })
+})
+
+
+describe('图片输入资源限制', () => {
+  afterEach(() => vi.unstubAllGlobals())
+
+  it('超出帧数限制时在加载图片前拒绝', async () => {
+    const image = vi.fn()
+    vi.stubGlobal('Image', image)
+    const frames = Array.from({ length: 61 }, (_, i) => ({ id: String(i), name: String(i), src: '/a.png' }))
+    await expect(makeGif(frames, defaultOptions)).rejects.toThrow('最多支持 60 帧')
+    expect(image).not.toHaveBeenCalled()
+  })
+
+  it('逐张加载，超大图片在画布分配前拒绝', async () => {
+    const requested: string[] = []
+    vi.stubGlobal('Image', class {
+      naturalWidth = 6000
+      naturalHeight = 5000
+      onload: (() => void) | null = null
+      onerror: (() => void) | null = null
+      set src(url: string) {
+        requested.push(url)
+        queueMicrotask(() => this.onload?.())
+      }
+    })
+    const frames = ['a', 'b'].map((id) => ({ id, name: id, src: `/${id}.png` }))
+    await expect(makeGif(frames, defaultOptions)).rejects.toThrow('2400 万像素')
+    expect(requested).toEqual(['/a.png'])
   })
 })

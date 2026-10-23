@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { BADGES } from '../data'
 import type { BadgeRecord, CardIconMode } from '../types'
-import { GifMakerTool } from './GifMakerDialog'
+import { GifMakerTool } from './GifMakerTool'
 
 interface GifNavigationState { badgeIds?: string[]; iconMode?: CardIconMode }
 
@@ -19,6 +19,7 @@ export default function GifMakerPage() {
   )
   const [iconSource, setIconSource] = useState<CardIconMode>(navState.iconMode ?? 'large')
   const [pickerOpen, setPickerOpen] = useState(false)
+  const [pickerCapacity, setPickerCapacity] = useState(0)
   const [pickerIds, setPickerIds] = useState<string[]>([])
   const [pickerQuery, setPickerQuery] = useState('')
   const selectedIds = useMemo(() => new Set(selectedBadges.map((badge) => badge.id)), [selectedBadges])
@@ -43,12 +44,9 @@ export default function GifMakerPage() {
         defaultIconSource={iconSource}
         iconSourceOverride={iconSource}
         onIconSourceChange={setIconSource}
-        onOpenChange={() => {}}
         onRemoveBadge={(id) => setSelectedBadges((prev) => prev.filter((badge) => badge.id !== id))}
-        onAddBadges={(badges) => setSelectedBadges((prev) => [...prev, ...badges])}
-        onRequestAddBadges={() => { setPickerIds([]); setPickerQuery(''); setPickerOpen(true) }}
+        onRequestAddBadges={(available) => { setPickerCapacity(available); setPickerIds([]); setPickerQuery(''); setPickerOpen(true) }}
         onClearBadges={() => setSelectedBadges([])}
-        embedded
       />
       <Dialog open={pickerOpen} onOpenChange={setPickerOpen}>
         <DialogContent className="max-h-[calc(100vh-2rem)] w-[calc(100%-2rem)] max-w-3xl gap-0 overflow-hidden p-0 sm:max-h-[min(780px,calc(100vh-3rem))]">
@@ -73,8 +71,8 @@ export default function GifMakerPage() {
             {pickerBadges.map((badge) => {
               const added = selectedIds.has(badge.id)
               const checked = pickerIds.includes(badge.id)
-              return <button key={badge.id} type="button" disabled={added} aria-pressed={checked} onClick={() => setPickerIds((prev) => checked ? prev.filter((id) => id !== badge.id) : [...prev, badge.id])} className={`relative flex min-h-16 items-center gap-2 rounded-md border p-2.5 text-left text-xs transition-colors ${added ? 'cursor-not-allowed bg-muted/50 text-muted-foreground' : checked ? 'border-primary bg-accent' : 'border-border hover:bg-muted'}`}>
-                <img src={iconSource === 'large' ? badge.exportIcon : badge.icon} alt="" className={`${iconSource === 'large' ? 'size-10' : 'size-8'} shrink-0 object-contain`} /><span className="line-clamp-2 min-w-0 flex-1">{badge.name}</span>
+              return <button key={badge.id} type="button" disabled={added || (!checked && pickerIds.length >= pickerCapacity)} aria-pressed={checked} onClick={() => setPickerIds((prev) => checked ? prev.filter((id) => id !== badge.id) : [...prev, badge.id])} className={`relative flex min-h-16 items-center gap-2 rounded-md border p-2.5 text-left text-xs transition-colors ${added ? 'cursor-not-allowed bg-muted/50 text-muted-foreground' : checked ? 'border-primary bg-accent' : 'border-border hover:bg-muted'}`}>
+                <img loading="lazy" decoding="async" src={iconSource === 'large' ? badge.exportIcon : badge.icon} alt="" className={`${iconSource === 'large' ? 'size-10' : 'size-8'} shrink-0 object-contain`} /><span className="line-clamp-2 min-w-0 flex-1">{badge.name}</span>
                 <span className={`shrink-0 text-[10px] ${added ? 'text-muted-foreground' : checked ? 'font-medium text-primary' : 'text-muted-foreground'}`}>{added ? '已加入' : checked ? '已选' : ''}</span>
               </button>
             })}

@@ -38,6 +38,7 @@ import {
   GifCancelledError,
   ICON_SOURCE_LABELS,
   MAX_DELAY_MS,
+  MAX_FRAME_COUNT,
   MAX_SPIN_STEP_DEG,
   MIN_DELAY_MS,
   MIN_SPIN_STEP_DEG,
@@ -82,27 +83,23 @@ function effectSummaryLabel(effect: GifEffect, spinStepDeg: number): string {
   return `${EFFECT_LABELS.spin} ${step >= 0 ? '+' : ''}${step}°`
 }
 
-export interface GifMakerDialogProps {
+export interface GifMakerToolProps {
   /** 已选徽章，按页面选择顺序传入。 */
   badges: BadgeRecord[]
-  /** 初始图标来源，与页面卡片图标开关联动；弹窗内切换只影响弹窗内的预览与生成。 */
+  /** 初始图标来源，可通过受控属性与页面选择器同步。 */
   defaultIconSource: GifIconSource
-  onOpenChange: (open: boolean) => void
   /** 移除徽章后同步回页面选择状态。 */
   onRemoveBadge: (id: string) => void
-  onAddBadges?: (badges: BadgeRecord[]) => void
-  onRequestAddBadges?: () => void
+  onRequestAddBadges?: (available: number) => void
   onClearBadges?: () => void
   iconSourceOverride?: GifIconSource
   onIconSourceChange?: (source: GifIconSource) => void
-  /** 通用图片帧；传入后允许混用图片帧和徽章。 */
-  initialFrames?: GifFrameInput[]
-  embedded?: boolean
 }
 
 /** 生成成功时的配置快照，用于展示结果信息与判断预览是否已过期。 */
 interface ConfigSnapshot {
   frameCount: number
+  frameKey: string
   delayMs: number
   effect: GifEffect
   iconSource: GifIconSource
@@ -121,31 +118,24 @@ function formatBytes(bytes: number): string {
   return `${Math.max(1, Math.round(bytes / 1024))} KB`
 }
 
-export function GifMakerDialog(props: GifMakerDialogProps) {
-  return <GifMakerTool {...props} embedded={false} />
-}
-
 export function GifMakerTool({
   badges,
   defaultIconSource,
-  onOpenChange,
   onRemoveBadge,
   onRequestAddBadges,
   onClearBadges,
   iconSourceOverride,
   onIconSourceChange,
-  initialFrames,
-  embedded = false,
-}: GifMakerDialogProps) {
-  // 出场顺序为弹窗内本地状态，每次打开随挂载重建
-  const [extraFrames, setExtraFrames] = useState<GifFrameInput[]>(initialFrames ?? [])
+}: GifMakerToolProps) {
+  // 出场顺序由工具维护，新增帧追加到末尾
+  const [extraFrames, setExtraFrames] = useState<GifFrameInput[]>([])
   const localUrlsRef = useRef<string[]>([])
   const [internalIconSource, setInternalIconSource] = useState<GifIconSource>(defaultIconSource)
   const iconSource = iconSourceOverride ?? internalIconSource
-  const allFrames: GifFrameInput[] = [
+  const allFrames = useMemo<GifFrameInput[]>(() => [
     ...badges.map((badge) => ({ id: badge.id, name: badge.name, src: iconUrlFor(badge, iconSource) })),
     ...extraFrames,
-  ]
+  ], [badges, iconSource, extraFrames])
   const [order, setOrder] = useState<string[]>(() => allFrames.map((frame) => frame.id))
   // 间隔以文本态保存，容忍输入过程中的临时值（空串、未敲完的数字），失焦时钳位回写
   const [delayInput, setDelayInput] = useState<string>(String(DEFAULT_DELAY_MS))
@@ -156,8 +146,8 @@ export function GifMakerTool({
   const [imageInputMessage, setImageInputMessage] = useState('')
   /** 成功后修改配置时保留旧预览，仅标记过期，避免误下载旧结果。 */
   const [configStale, setStale] = useState(false)
-  const stale = configStale || (generation.phase === 'success' && generation.snapshot.iconSource !== iconSource)
-  const [confirmingClose, setConfirmingClose] = useState(false)
+  const frameKey = JSON.stringify(allFrames.map(({ id, src }) => [id, src]))
+  const stale = configStale || (generation.phase === 'success' && generation.snapshot.frameKey !== frameKey)
   const [pendingRemoval, setPendingRemoval] = useState<{ id: string; name: string } | 'all' | null>(null)
   const requestRef = useRef(0)
   const resultUrlRef = useRef<string | null>(null)
@@ -194,6 +184,7 @@ export function GifMakerTool({
   // 卸载时取消在途任务并释放预览 URL
   useEffect(() => {
     return () => {
+      requestRef.current += 1
       abortRef.current?.abort()
       if (resultUrlRef.current !== null) URL.revokeObjectURL(resultUrlRef.current)
       const urls = localUrlsRef.current
@@ -226,10 +217,20 @@ export function GifMakerTool({
     })
   }
 
+  const releaseLocalUrl = (src: string) => {
+    if (!localUrlsRef.current.includes(src)) return
+    URL.revokeObjectURL(src)
+    localUrlsRef.current = localUrlsRef.current.filter((url) => url !== src)
+  }
+
   const handleRemove = (id: string) => {
     if (generating) return
     markConfigChanged()
-    if (extraFrames.some((frame) => frame.id === id)) setExtraFrames((prev) => prev.filter((frame) => frame.id !== id))
+    const frame = extraFrames.find((frame) => frame.id === id)
+    if (frame) {
+      releaseLocalUrl(frame.src)
+      setExtraFrames((prev) => prev.filter((frame) => frame.id !== id))
+    }
     else onRemoveBadge(id)
   }
 
@@ -237,6 +238,7 @@ export function GifMakerTool({
     if (generating || pendingRemoval === null) return
     if (pendingRemoval === 'all') {
       markConfigChanged()
+      extraFrames.forEach((frame) => releaseLocalUrl(frame.src))
       setExtraFrames([])
       if (onClearBadges) onClearBadges()
       else badges.forEach((badge) => onRemoveBadge(badge.id))
@@ -285,6 +287,7 @@ export function GifMakerTool({
     if (frameError !== null || generating) return
     const snapshot: ConfigSnapshot = {
       frameCount: orderedBadges.length,
+      frameKey,
       delayMs: normalizedDelay,
       effect,
       iconSource,
@@ -292,7 +295,6 @@ export function GifMakerTool({
     }
     revokeResult()
     setStale(false)
-    setConfirmingClose(false)
     const controller = new AbortController()
     abortRef.current = controller
     const requestId = ++requestRef.current
@@ -333,28 +335,6 @@ export function GifMakerTool({
 
   const handleCancel = () => {
     abortRef.current?.abort()
-  }
-
-  // 生成期间关闭弹窗需二次确认；确认取消后释放任务资源再关闭
-  const requestClose = (open: boolean) => {
-    if (!open && generating) {
-      setConfirmingClose(true)
-      return
-    }
-    if (!open) {
-      requestRef.current += 1
-      abortRef.current?.abort()
-      revokeResult()
-    }
-    onOpenChange(open)
-  }
-
-  const confirmCloseAndCancel = () => {
-    requestRef.current += 1
-    abortRef.current?.abort()
-    revokeResult()
-    setConfirmingClose(false)
-    onOpenChange(false)
   }
 
   const canGenerate = frameError === null && !generating
@@ -403,7 +383,7 @@ export function GifMakerTool({
             <div className="flex flex-col gap-3">
             {onRequestAddBadges && <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-primary/20 bg-primary/5 p-3">
               <div className="flex items-center gap-2 text-sm font-medium"><BookOpen className="size-4 text-primary" aria-hidden />图鉴徽章</div>
-              <Button type="button" size="sm" disabled={generating} onClick={onRequestAddBadges}>从图鉴添加</Button>
+              <Button type="button" size="sm" disabled={generating || allFrames.length >= MAX_FRAME_COUNT} onClick={() => onRequestAddBadges(MAX_FRAME_COUNT - allFrames.length)}>从图鉴添加</Button>
             </div>}
             <div className="flex flex-col gap-3 rounded-lg border border-border bg-muted/30 p-3">
               <p className="text-sm font-medium">自定义图片</p>
@@ -418,8 +398,9 @@ export function GifMakerTool({
                   className="sr-only"
                   onChange={(event) => {
                     const files = Array.from(event.target.files ?? [])
-                    const accepted = files.filter((file) => file.type.startsWith('image/'))
-                    if (accepted.length < files.length) setImageInputMessage('仅接受图片文件。')
+                    const available = Math.max(0, MAX_FRAME_COUNT - allFrames.length)
+                    const accepted = files.filter((file) => file.type.startsWith('image/')).slice(0, available)
+                    if (accepted.length < files.length) setImageInputMessage(`仅接受图片文件，最多添加 ${MAX_FRAME_COUNT} 帧。`)
                     else setImageInputMessage('')
                     for (const file of accepted) {
                       addImage(URL.createObjectURL(file), file.name)
@@ -433,6 +414,10 @@ export function GifMakerTool({
                 const form = event.currentTarget
                 const input = form.elements.namedItem('image-url') as HTMLInputElement
                 const value = input.value.trim()
+                if (allFrames.length >= MAX_FRAME_COUNT) {
+                  setImageInputMessage(`最多支持 ${MAX_FRAME_COUNT} 帧。`)
+                  return
+                }
                 if (value) {
                   try {
                     const url = new URL(value)
@@ -450,10 +435,9 @@ export function GifMakerTool({
             </div>
             </div>
             {imageInputMessage && <p role="alert" className="mt-1.5 text-xs text-destructive">{imageInputMessage}</p>}
-            <p className="mt-1.5 text-xs text-muted-foreground">可与本地徽章混合使用；至少 2 帧。外链图片需允许浏览器跨域读取。</p>
+            <p className="mt-1.5 text-xs text-muted-foreground">可与本地徽章混合使用；2–{MAX_FRAME_COUNT} 帧，单图不超过 2400 万像素。外链图片需允许浏览器跨域读取。</p>
           </section>
-          {orderedBadges.some((frame) => badges.some((badge) => badge.id === frame.id)) &&
-            (!embedded || onIconSourceChange) && <section aria-label="图鉴图标大小">
+          { <section aria-label="图鉴图标大小">
             <h3 className="mb-2 text-sm font-medium">图鉴图标大小</h3>
             <div
               role="group"
@@ -536,7 +520,7 @@ export function GifMakerTool({
                       aria-hidden
                     />
                     <BadgeImage
-                      src={badges.find((item) => item.id === badge.id) ? iconUrlFor(badges.find((item) => item.id === badge.id)!, iconSource) : badge.src}
+                      src={badge.src}
                       alt={badge.name}
                       className={iconSource === 'large' ? 'size-8' : 'size-6'}
                     />
@@ -603,10 +587,7 @@ export function GifMakerTool({
             <div className="mb-2 flex items-center gap-3">
               <h3 className="text-sm font-medium">切换效果</h3>
               <EffectPreview
-                badges={orderedBadges.map((frame) => {
-                  const badge = badges.find((item) => item.id === frame.id)
-                  return badge ? { ...frame, src: iconUrlFor(badge, iconSource) } : frame
-                })}
+                badges={orderedBadges}
                 effect={effect}
                 spinStepDeg={normalizedSpinStep}
               />
@@ -745,24 +726,6 @@ export function GifMakerTool({
         </div>
 
         <div className="flex flex-col items-stretch gap-2 border-t border-border p-5 sm:flex-row sm:items-center sm:justify-between">
-          {confirmingClose ? (
-            <div
-              role="alertdialog"
-              aria-label="确认关闭"
-              className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center sm:justify-between"
-            >
-              <p className="text-sm text-muted-foreground">正在生成 GIF，关闭将取消本次生成。</p>
-              <div className="flex gap-2">
-                <Button size="sm" variant="outline" onClick={() => setConfirmingClose(false)}>
-                  继续生成
-                </Button>
-                <Button size="sm" variant="destructive" onClick={confirmCloseAndCancel}>
-                  取消并关闭
-                </Button>
-              </div>
-            </div>
-          ) : (
-            <>
               <p className="text-xs text-muted-foreground" aria-live="polite">
                 {frameError !== null
                   ? `${frameError}。`
@@ -784,11 +747,8 @@ export function GifMakerTool({
                   {generateButtonLabel}
                 </Button>
               )}
-            </>
-          )}
         </div>
       </>
   )
-  if (embedded) return <div className="overflow-hidden rounded-xl border border-border bg-card">{content}</div>
-  return <Dialog open onOpenChange={requestClose}><DialogContent className="max-h-[calc(100vh-4rem)] w-full max-w-[calc(100%-2rem)] overflow-y-auto rounded-xl sm:max-w-lg">{content}</DialogContent></Dialog>
+  return <div className="overflow-hidden rounded-xl border border-border bg-card">{content}</div>
 }
