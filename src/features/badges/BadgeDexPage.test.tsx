@@ -86,7 +86,7 @@ describe('BadgeDexPage', () => {
     expect(smallImg.className).toContain('size-16')
   })
 
-  it('制作动图弹窗图标来源跟随页面开关，弹窗内切换不回写页面', async () => {
+  it('制作 GIF 入口把所选徽章和图标模式带到独立页面', async () => {
     const user = userEvent.setup()
     renderPage()
 
@@ -95,33 +95,8 @@ describe('BadgeDexPage', () => {
     await user.click(cards[0])
     await user.click(cards[1])
     await user.click(screen.getByRole('button', { name: '生成 GIF' }))
-
-    // 页面默认小图标 → 弹窗内默认「使用小图标」
-    expect(screen.getByRole('button', { name: '使用小图标' })).toHaveAttribute(
-      'aria-pressed',
-      'true',
-    )
-
-    // 弹窗内切大图标只影响弹窗展示，背后卡片仍是小图标
-    await user.click(screen.getByRole('button', { name: '高清大图标' }))
-    const dialog = screen.getByRole('dialog')
-    expect(within(dialog).getByAltText('2Libra 一周年！').getAttribute('src')).toMatch(
-      /\/badge\/[^/]+\.svg$/,
-    )
-    const pageImg = cards[0].querySelector('img') as HTMLImageElement
-    expect(pageImg.getAttribute('src')).toContain('/badge/svg/')
-
-    await user.click(within(dialog).getByRole('button', { name: '关闭弹窗' }))
-    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
-    expect(pageImg.getAttribute('src')).toContain('/badge/svg/')
-
-    // 页面切大图标后重新打开弹窗，弹窗默认大图标
-    await user.click(screen.getByRole('button', { name: '大图标' }))
-    await user.click(screen.getByRole('button', { name: '生成 GIF' }))
-    expect(screen.getByRole('button', { name: '高清大图标' })).toHaveAttribute(
-      'aria-pressed',
-      'true',
-    )
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: '徽章图鉴' })).toBeInTheDocument()
   })
 
   it('点击卡片打开详情弹窗，展示条件与属性，可关闭', async () => {

@@ -1,23 +1,20 @@
 import { useEffect, useRef } from 'react'
 import { cn } from '@/lib/utils'
-import type { BadgeRecord } from '../types'
 import {
   FRAME_BACKGROUND,
   computeFrameLayout,
   computeSpinRotationRad,
   drawFrameSource,
   drawFrameSourceRotated,
-  iconUrlFor,
   renderTransition,
   type FrameSource,
+  type GifFrameInput,
   type GifEffect,
-  type GifIconSource,
 } from './gifmaker'
 
 interface EffectPreviewProps {
-  badges: BadgeRecord[]
+  badges: GifFrameInput[]
   effect: GifEffect
-  iconSource: GifIconSource
   /** 逐帧旋转的步进角（度），仅 effect === 'spin' 时生效。 */
   spinStepDeg: number
   className?: string
@@ -29,7 +26,7 @@ const TRANSITION_MS = 480
 const PREVIEW_SIZE = 128
 
 /** 切换效果的小型实时预览：在前两枚已选徽章间按所选效果循环切换。 */
-export function EffectPreview({ badges, effect, iconSource, spinStepDeg, className }: EffectPreviewProps) {
+export function EffectPreview({ badges, effect, spinStepDeg, className }: EffectPreviewProps) {
   const firstRef = useRef<HTMLImageElement>(null)
   const secondRef = useRef<HTMLImageElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -146,7 +143,7 @@ export function EffectPreview({ badges, effect, iconSource, spinStepDeg, classNa
       {badges[0] !== undefined && (
         <img
           ref={firstRef}
-          src={iconUrlFor(badges[0], iconSource)}
+          src={badges[0].src}
           alt=""
           className="absolute size-0 opacity-0"
         />
@@ -154,7 +151,7 @@ export function EffectPreview({ badges, effect, iconSource, spinStepDeg, classNa
       {badges[1] !== undefined && (
         <img
           ref={secondRef}
-          src={iconUrlFor(badges[1], iconSource)}
+          src={badges[1].src}
           alt=""
           className="absolute size-0 opacity-0"
         />

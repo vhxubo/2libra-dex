@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { Database, Film, SearchX, Sparkles, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Pagination } from '@/components/Pagination'
@@ -7,7 +7,6 @@ import { BadgeCard } from './components/BadgeCard'
 import { BadgeDetailDialog } from './components/BadgeDetailDialog'
 import { BadgeTableView } from './components/BadgeTableView'
 import { BadgeToolbar } from './components/BadgeToolbar'
-import { GifMakerDialog } from './gif/GifMakerDialog'
 import {
   ATTR_TYPE_COUNTS,
   BADGES,
@@ -133,7 +132,7 @@ export default function BadgeDexPage() {
   // 制作动图的多选状态只存在于页面内，不进 URL；顺序即点击顺序
   const [selectMode, setSelectMode] = useState(false)
   const [selectedIds, setSelectedIds] = useState<string[]>([])
-  const [gifDialogOpen, setGifDialogOpen] = useState(false)
+  const navigate = useNavigate()
 
   const filtered = useMemo(
     () =>
@@ -233,14 +232,6 @@ export default function BadgeDexPage() {
   const handleRemoveFilter = useCallback(
     (patch: Partial<BadgeUrlState>) => update({ ...patch, page: 1 }),
     [update],
-  )
-
-  const selectedBadges = useMemo(
-    () =>
-      selectedIds
-        .map((id) => BADGES.find((badge) => badge.id === id))
-        .filter((badge): badge is (typeof BADGES)[number] => badge !== undefined),
-    [selectedIds],
   )
 
   return (
@@ -355,7 +346,7 @@ export default function BadgeDexPage() {
             <Button
               size="sm"
               disabled={selectedIds.length < 2}
-              onClick={() => setGifDialogOpen(true)}
+              onClick={() => navigate('/gif-maker', { state: { badgeIds: selectedIds, iconMode: state.iconMode } })}
               className="gap-1.5"
             >
               <Sparkles className="size-3.5" aria-hidden />
@@ -363,17 +354,6 @@ export default function BadgeDexPage() {
             </Button>
           </div>
         </div>
-      )}
-
-      {gifDialogOpen && (
-        <GifMakerDialog
-          badges={selectedBadges}
-          defaultIconSource={state.iconMode}
-          onOpenChange={(open) => {
-            if (!open) setGifDialogOpen(false)
-          }}
-          onRemoveBadge={handleToggleSelect}
-        />
       )}
 
       <BadgeDetailDialog

@@ -11,7 +11,6 @@ import {
   MAX_SPIN_STEP_DEG,
   MIN_DELAY_MS,
   MIN_SPIN_STEP_DEG,
-  MAX_FRAME_COUNT,
   MIN_FRAME_COUNT,
   buildFramePlan,
   computeDefaultSpinStepDeg,
@@ -70,11 +69,9 @@ describe('validateFrameCount', () => {
     expect(validateFrameCount(1)).not.toBeNull()
   })
 
-  it('超过 12 帧时阻止并给出原因', () => {
-    expect(validateFrameCount(13)).toContain('最多支持 12 帧')
-    expect(validateFrameCount(13)).toContain('当前 13 帧')
+  it('达到 2 帧后不再受最大帧数限制', () => {
     expect(validateFrameCount(MIN_FRAME_COUNT)).toBeNull()
-    expect(validateFrameCount(MAX_FRAME_COUNT)).toBeNull()
+    expect(validateFrameCount(13)).toBeNull()
   })
 })
 
@@ -260,14 +257,11 @@ describe('makeGif 取消', () => {
     expect(fetchMock).not.toHaveBeenCalled()
   })
 
-  it('帧数不满足条件时不进入加载流程', async () => {
+  it('帧数不足时不进入加载流程', async () => {
     const fetchMock = vi.fn()
     vi.stubGlobal('fetch', fetchMock)
 
     await expect(makeGif([badge('a')], defaultOptions)).rejects.toThrow('至少选择 2 枚')
-    await expect(
-      makeGif(Array.from({ length: 13 }, (_, i) => badge(`b${i}`)), defaultOptions),
-    ).rejects.toThrow('最多支持 12 帧')
     expect(fetchMock).not.toHaveBeenCalled()
   })
 
@@ -283,6 +277,31 @@ describe('makeGif 取消', () => {
     )
     controller.abort()
     await expect(pending).rejects.toThrow(GifCancelledError)
+  })
+})
+
+describe('makeGif 外链图片', () => {
+  afterEach(() => vi.unstubAllGlobals())
+
+  it('在请求图片前启用匿名 CORS，不允许污染画布的图片进入编码', async () => {
+    const requested: { url: string; crossOrigin: string | null }[] = []
+    vi.stubGlobal('Image', class {
+      crossOrigin: string | null = null
+      onload: (() => void) | null = null
+      onerror: (() => void) | null = null
+      set src(url: string) {
+        requested.push({ url, crossOrigin: this.crossOrigin })
+        queueMicrotask(() => this.onerror?.())
+      }
+    })
+    const frames = ['a', 'b'].map((id) => ({
+      id, name: id, src: `https://example.com/${id}.png`,
+    }))
+
+    await expect(makeGif(frames, defaultOptions)).rejects.toThrow('本地上传')
+    expect(requested).toEqual(frames.map((frame) => ({
+      url: frame.src, crossOrigin: 'anonymous',
+    })))
   })
 })
 

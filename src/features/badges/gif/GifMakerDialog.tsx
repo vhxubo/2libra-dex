@@ -6,6 +6,9 @@ import {
   CircleCheck,
   Download,
   GripVertical,
+  BookOpen,
+  Upload,
+  Link as LinkIcon,
   Info,
   Loader2,
   Sparkles,
@@ -15,9 +18,10 @@ import { Button } from '@/components/ui/button'
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
+  DialogFooter,
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
@@ -47,6 +51,7 @@ import {
   normalizeSpinStepDeg,
   validateFrameCount,
   type GifEffect,
+  type GifFrameInput,
   type GifIconSource,
   type GifMakerProgress,
 } from './gifmaker'
@@ -85,6 +90,14 @@ export interface GifMakerDialogProps {
   onOpenChange: (open: boolean) => void
   /** 移除徽章后同步回页面选择状态。 */
   onRemoveBadge: (id: string) => void
+  onAddBadges?: (badges: BadgeRecord[]) => void
+  onRequestAddBadges?: () => void
+  onClearBadges?: () => void
+  iconSourceOverride?: GifIconSource
+  onIconSourceChange?: (source: GifIconSource) => void
+  /** 通用图片帧；传入后允许混用图片帧和徽章。 */
+  initialFrames?: GifFrameInput[]
+  embedded?: boolean
 }
 
 /** 生成成功时的配置快照，用于展示结果信息与判断预览是否已过期。 */
@@ -108,43 +121,67 @@ function formatBytes(bytes: number): string {
   return `${Math.max(1, Math.round(bytes / 1024))} KB`
 }
 
-export function GifMakerDialog({
+export function GifMakerDialog(props: GifMakerDialogProps) {
+  return <GifMakerTool {...props} embedded={false} />
+}
+
+export function GifMakerTool({
   badges,
   defaultIconSource,
   onOpenChange,
   onRemoveBadge,
+  onRequestAddBadges,
+  onClearBadges,
+  iconSourceOverride,
+  onIconSourceChange,
+  initialFrames,
+  embedded = false,
 }: GifMakerDialogProps) {
   // 出场顺序为弹窗内本地状态，每次打开随挂载重建
-  const [order, setOrder] = useState<string[]>(() => badges.map((badge) => badge.id))
+  const [extraFrames, setExtraFrames] = useState<GifFrameInput[]>(initialFrames ?? [])
+  const localUrlsRef = useRef<string[]>([])
+  const [internalIconSource, setInternalIconSource] = useState<GifIconSource>(defaultIconSource)
+  const iconSource = iconSourceOverride ?? internalIconSource
+  const allFrames: GifFrameInput[] = [
+    ...badges.map((badge) => ({ id: badge.id, name: badge.name, src: iconUrlFor(badge, iconSource) })),
+    ...extraFrames,
+  ]
+  const [order, setOrder] = useState<string[]>(() => allFrames.map((frame) => frame.id))
   // 间隔以文本态保存，容忍输入过程中的临时值（空串、未敲完的数字），失焦时钳位回写
   const [delayInput, setDelayInput] = useState<string>(String(DEFAULT_DELAY_MS))
   const [effect, setEffect] = useState<GifEffect>(readStoredEffect)
   // 逐帧旋转的步进角：null 表示未手动调整，跟随 360/帧数 的派生默认值
   const [spinStepInput, setSpinStepInput] = useState<string | null>(null)
-  const [iconSource, setIconSource] = useState<GifIconSource>(defaultIconSource)
   const [generation, setGeneration] = useState<GenerateState>({ phase: 'idle' })
+  const [imageInputMessage, setImageInputMessage] = useState('')
   /** 成功后修改配置时保留旧预览，仅标记过期，避免误下载旧结果。 */
-  const [stale, setStale] = useState(false)
+  const [configStale, setStale] = useState(false)
+  const stale = configStale || (generation.phase === 'success' && generation.snapshot.iconSource !== iconSource)
   const [confirmingClose, setConfirmingClose] = useState(false)
+  const [pendingRemoval, setPendingRemoval] = useState<{ id: string; name: string } | 'all' | null>(null)
   const requestRef = useRef(0)
   const resultUrlRef = useRef<string | null>(null)
   const abortRef = useRef<AbortController | null>(null)
   const dragIndexRef = useRef<number | null>(null)
 
   const orderedBadges = useMemo(() => {
-    const byId = new Map(badges.map((badge) => [badge.id, badge]))
+    const byId = new Map(allFrames.map((frame) => [frame.id, frame]))
     return order
       .map((id) => byId.get(id))
-      .filter((badge): badge is BadgeRecord => badge !== undefined)
-  }, [badges, order])
+      .filter((frame): frame is GifFrameInput => frame !== undefined)
+  }, [allFrames, order])
 
   // 页面侧移除徽章后同步清掉顺序里的悬空 id；沿用 render 期间对齐外部值的模式
-  const badgeIdsKey = badges.map((badge) => badge.id).join('\n')
+  const badgeIdsKey = allFrames.map((frame) => frame.id).join('\n')
   const [syncedBadgeIds, setSyncedBadgeIds] = useState(badgeIdsKey)
   if (badgeIdsKey !== syncedBadgeIds) {
     setSyncedBadgeIds(badgeIdsKey)
-    const idSet = new Set(badges.map((badge) => badge.id))
-    setOrder((prev) => prev.filter((id) => idSet.has(id)))
+    const idSet = new Set(allFrames.map((frame) => frame.id))
+    setOrder((prev) => {
+      const retained = prev.filter((id) => idSet.has(id))
+      const orderedSet = new Set(retained)
+      return [...retained, ...allFrames.map((frame) => frame.id).filter((id) => !orderedSet.has(id))]
+    })
   }
 
   const generating = generation.phase === 'generating'
@@ -159,6 +196,8 @@ export function GifMakerDialog({
     return () => {
       abortRef.current?.abort()
       if (resultUrlRef.current !== null) URL.revokeObjectURL(resultUrlRef.current)
+      const urls = localUrlsRef.current
+      for (const url of urls) URL.revokeObjectURL(url)
     }
   }, [])
 
@@ -190,7 +229,30 @@ export function GifMakerDialog({
   const handleRemove = (id: string) => {
     if (generating) return
     markConfigChanged()
-    onRemoveBadge(id)
+    if (extraFrames.some((frame) => frame.id === id)) setExtraFrames((prev) => prev.filter((frame) => frame.id !== id))
+    else onRemoveBadge(id)
+  }
+
+  const confirmRemoval = () => {
+    if (generating || pendingRemoval === null) return
+    if (pendingRemoval === 'all') {
+      markConfigChanged()
+      setExtraFrames([])
+      if (onClearBadges) onClearBadges()
+      else badges.forEach((badge) => onRemoveBadge(badge.id))
+      setOrder([])
+    } else {
+      handleRemove(pendingRemoval.id)
+    }
+    setPendingRemoval(null)
+  }
+
+  const addImage = (src: string, name: string) => {
+    if (src.startsWith('blob:')) localUrlsRef.current.push(src)
+    const frame = { id: `image-${crypto.randomUUID()}`, name, src }
+    markConfigChanged()
+    setExtraFrames((prev) => [...prev, frame])
+    setOrder((prev) => [...prev, frame.id])
   }
 
   // 仅在有效间隔变化时使旧结果失效；临时文本编辑（如删空重输）不打扰预览
@@ -240,7 +302,7 @@ export function GifMakerDialog({
     })
     try {
       const blob = await makeGif(
-        orderedBadges,
+        orderedBadges.map((frame) => badges.find((badge) => badge.id === frame.id) ?? frame),
         { delayMs: normalizedDelay, effect, iconSource, spinStepDeg: normalizedSpinStep },
         (progress) => {
           if (requestRef.current === requestId) {
@@ -310,17 +372,126 @@ export function GifMakerDialog({
         ? '重新生成'
         : '生成 GIF'
 
-  return (
-    <Dialog open onOpenChange={requestClose}>
-      <DialogContent className="max-h-[calc(100vh-4rem)] w-full max-w-[calc(100%-2rem)] overflow-y-auto rounded-xl sm:max-w-lg">
-        <DialogHeader>
-          <DialogTitle className="text-base">制作徽章动图</DialogTitle>
-          <DialogDescription>
+  const content = (
+    <>
+        <Dialog open={pendingRemoval !== null} onOpenChange={(open) => { if (!open) setPendingRemoval(null) }}>
+          <DialogContent role="alertdialog" className="w-[calc(100%-2rem)] max-w-md rounded-xl">
+            <DialogHeader>
+              <DialogTitle>{pendingRemoval === 'all' ? '确认清空所有帧？' : '确认移除图片帧？'}</DialogTitle>
+              <DialogDescription>
+                {pendingRemoval === 'all'
+                  ? `将移除全部 ${orderedBadges.length} 帧，清空后需要重新添加。`
+                  : `将从出场顺序中移除「${pendingRemoval?.name ?? ''}」，移除后需要重新添加。`}
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button variant="outline" autoFocus onClick={() => setPendingRemoval(null)}>取消</Button>
+              <Button variant="destructive" onClick={confirmRemoval}>{pendingRemoval === 'all' ? '确认清空' : '确认移除'}</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+        <header className="px-5 pt-5">
+          <h2 className="text-base font-semibold">制作 GIF</h2>
+          <p className="mt-1 text-sm text-muted-foreground">
             拖动或用箭头调整出场顺序，生成 512×512 无限循环的轮播 GIF。
-          </DialogDescription>
-        </DialogHeader>
+          </p>
+        </header>
 
         <div className="flex flex-col gap-4 p-5 pt-4">
+          <section aria-label="添加图片">
+            <h3 className="mb-2 text-sm font-medium">添加图片帧</h3>
+            <div className="flex flex-col gap-3">
+            {onRequestAddBadges && <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-primary/20 bg-primary/5 p-3">
+              <div className="flex items-center gap-2 text-sm font-medium"><BookOpen className="size-4 text-primary" aria-hidden />图鉴徽章</div>
+              <Button type="button" size="sm" disabled={generating} onClick={onRequestAddBadges}>从图鉴添加</Button>
+            </div>}
+            <div className="flex flex-col gap-3 rounded-lg border border-border bg-muted/30 p-3">
+              <p className="text-sm font-medium">自定义图片</p>
+              <label className={`inline-flex h-8 w-fit items-center gap-2 rounded-md border border-input bg-card px-3 text-xs transition-colors focus-within:ring-2 focus-within:ring-ring ${generating ? 'cursor-not-allowed opacity-50' : 'cursor-pointer hover:bg-accent'}`}>
+                <Upload className="size-3.5" aria-hidden />上传本地图片
+                <input
+                  aria-label="上传本地图片"
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  disabled={generating}
+                  className="sr-only"
+                  onChange={(event) => {
+                    const files = Array.from(event.target.files ?? [])
+                    const accepted = files.filter((file) => file.type.startsWith('image/'))
+                    if (accepted.length < files.length) setImageInputMessage('仅接受图片文件。')
+                    else setImageInputMessage('')
+                    for (const file of accepted) {
+                      addImage(URL.createObjectURL(file), file.name)
+                    }
+                    event.target.value = ''
+                  }}
+                />
+              </label>
+              <form className="flex min-w-0 flex-wrap items-center gap-2 border-t border-border pt-3" onSubmit={(event) => {
+                event.preventDefault()
+                const form = event.currentTarget
+                const input = form.elements.namedItem('image-url') as HTMLInputElement
+                const value = input.value.trim()
+                if (value) {
+                  try {
+                    const url = new URL(value)
+                    if (url.protocol === 'http:' || url.protocol === 'https:') {
+                      addImage(url.href, url.pathname.split('/').pop() || url.hostname)
+                      setImageInputMessage('')
+                      input.value = ''
+                    }
+                  } catch { /* 留给输入框校验提示 */ }
+                }
+              }}>
+                <Input name="image-url" type="url" placeholder="粘贴图片链接 (https://…)" aria-label="图片链接" disabled={generating} className="h-8 min-w-0 flex-1 basis-40" />
+                <Button type="submit" size="sm" variant="outline" disabled={generating}><LinkIcon aria-hidden />添加链接</Button>
+              </form>
+            </div>
+            </div>
+            {imageInputMessage && <p role="alert" className="mt-1.5 text-xs text-destructive">{imageInputMessage}</p>}
+            <p className="mt-1.5 text-xs text-muted-foreground">可与本地徽章混合使用；至少 2 帧。外链图片需允许浏览器跨域读取。</p>
+          </section>
+          {orderedBadges.some((frame) => badges.some((badge) => badge.id === frame.id)) &&
+            (!embedded || onIconSourceChange) && <section aria-label="图鉴图标大小">
+            <h3 className="mb-2 text-sm font-medium">图鉴图标大小</h3>
+            <div
+              role="group"
+              aria-label="选择图鉴图标大小"
+              className="inline-flex flex-wrap items-center rounded-md border border-input bg-card p-0.5"
+            >
+              {(Object.keys(ICON_SOURCE_LABELS) as GifIconSource[]).map((option) => (
+                <button
+                  key={option}
+                  type="button"
+                  aria-pressed={iconSource === option}
+                  disabled={generating}
+                  onClick={() => {
+                    if (iconSource !== option) {
+                      markConfigChanged()
+                      if (onIconSourceChange) onIconSourceChange(option)
+                      else setInternalIconSource(option)
+                    }
+                  }}
+                  className={cn(
+                    'inline-flex h-8 items-center rounded-[6px] px-2.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50',
+                    iconSource === option
+                      ? 'bg-primary text-primary-foreground'
+                      : 'text-muted-foreground hover:text-foreground',
+                  )}
+                >
+                  {ICON_SOURCE_LABELS[option]}
+                </button>
+              ))}
+            </div>
+            {iconSource === 'small' && (
+              <p className="mt-2 flex items-start gap-1.5 text-xs text-muted-foreground">
+                <Info className="mt-0.5 size-3.5 shrink-0" aria-hidden />
+                文件更小、生成更快，但清晰度取决于小图标尺寸。
+              </p>
+            )}
+          </section>}
+
           <section aria-label="已选徽章">
             <div className="mb-2 flex items-center justify-between">
               <h3 className="text-sm font-medium">
@@ -328,11 +499,12 @@ export function GifMakerDialog({
                 <span className="ml-1.5 text-xs font-normal text-muted-foreground">
                   共 {orderedBadges.length} 帧
                 </span>
+                {orderedBadges.length > 0 && <Button type="button" size="sm" variant="ghost" disabled={generating} onClick={() => setPendingRemoval('all')}>一键清空</Button>}
               </h3>
             </div>
             {orderedBadges.length === 0 ? (
               <p className="rounded-lg border border-dashed border-border px-4 py-6 text-center text-sm text-muted-foreground">
-                已全部移除，请关闭弹窗后重新选择徽章。
+                尚未添加图片；可从图鉴添加、上传本地图片或粘贴外部图片链接。
               </p>
             ) : (
               <ul
@@ -364,7 +536,7 @@ export function GifMakerDialog({
                       aria-hidden
                     />
                     <BadgeImage
-                      src={iconUrlFor(badge, iconSource)}
+                      src={badges.find((item) => item.id === badge.id) ? iconUrlFor(badges.find((item) => item.id === badge.id)!, iconSource) : badge.src}
                       alt={badge.name}
                       className={iconSource === 'large' ? 'size-8' : 'size-6'}
                     />
@@ -393,8 +565,8 @@ export function GifMakerDialog({
                       <button
                         type="button"
                         aria-label={`移除 ${badge.name}`}
-                        disabled={generating || orderedBadges.length <= 1}
-                        onClick={() => handleRemove(badge.id)}
+                      disabled={generating}
+                        onClick={() => setPendingRemoval({ id: badge.id, name: badge.name })}
                         className="rounded-full p-1 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-30"
                       >
                         <X className="size-3.5" aria-hidden />
@@ -431,9 +603,11 @@ export function GifMakerDialog({
             <div className="mb-2 flex items-center gap-3">
               <h3 className="text-sm font-medium">切换效果</h3>
               <EffectPreview
-                badges={orderedBadges}
+                badges={orderedBadges.map((frame) => {
+                  const badge = badges.find((item) => item.id === frame.id)
+                  return badge ? { ...frame, src: iconUrlFor(badge, iconSource) } : frame
+                })}
                 effect={effect}
-                iconSource={iconSource}
                 spinStepDeg={normalizedSpinStep}
               />
             </div>
@@ -492,44 +666,6 @@ export function GifMakerDialog({
                   默认 360÷帧数，循环无缝
                 </span>
               </div>
-            )}
-          </section>
-
-          <section aria-label="生成图标">
-            <h3 className="mb-2 text-sm font-medium">生成图标</h3>
-            <div
-              role="group"
-              aria-label="选择生成图标来源"
-              className="inline-flex flex-wrap items-center rounded-md border border-input bg-card p-0.5"
-            >
-              {(Object.keys(ICON_SOURCE_LABELS) as GifIconSource[]).map((option) => (
-                <button
-                  key={option}
-                  type="button"
-                  aria-pressed={iconSource === option}
-                  disabled={generating}
-                  onClick={() => {
-                    if (iconSource !== option) {
-                      markConfigChanged()
-                      setIconSource(option)
-                    }
-                  }}
-                  className={cn(
-                    'inline-flex h-8 items-center rounded-[6px] px-2.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50',
-                    iconSource === option
-                      ? 'bg-primary text-primary-foreground'
-                      : 'text-muted-foreground hover:text-foreground',
-                  )}
-                >
-                  {ICON_SOURCE_LABELS[option]}
-                </button>
-              ))}
-            </div>
-            {iconSource === 'small' && (
-              <p className="mt-2 flex items-start gap-1.5 text-xs text-muted-foreground">
-                <Info className="mt-0.5 size-3.5 shrink-0" aria-hidden />
-                文件更小、生成更快，但清晰度取决于小图标尺寸。
-              </p>
             )}
           </section>
 
@@ -651,7 +787,8 @@ export function GifMakerDialog({
             </>
           )}
         </div>
-      </DialogContent>
-    </Dialog>
+      </>
   )
+  if (embedded) return <div className="overflow-hidden rounded-xl border border-border bg-card">{content}</div>
+  return <Dialog open onOpenChange={requestClose}><DialogContent className="max-h-[calc(100vh-4rem)] w-full max-w-[calc(100%-2rem)] overflow-y-auto rounded-xl sm:max-w-lg">{content}</DialogContent></Dialog>
 }

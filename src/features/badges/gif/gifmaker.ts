@@ -26,7 +26,6 @@ export const DEFAULT_DELAY_MS = 200
 // ===== 帧数限制 =====
 
 export const MIN_FRAME_COUNT = 2
-export const MAX_FRAME_COUNT = 12
 
 // ===== 切换效果 =====
 
@@ -129,6 +128,16 @@ export interface GifMakerOptions {
   spinStepDeg: number
 }
 
+/** 通用 GIF 帧，徽章和用户图片共用同一编码流程。 */
+export interface GifFrameInput { id: string; name: string; src: string }
+
+/** 通用 GIF 帧输入，支持徽章来源或用户提供的图片 URL。 */
+export interface GifFrameInput {
+  id: string
+  name: string
+  src: string
+}
+
 export interface GifMakerProgress {
   /** 已完成编码的徽章数。 */
   done: number
@@ -164,13 +173,10 @@ function roundTransitionFrameMs(value: number): number {
   return Math.round(value / TRANSITION_FRAME_STEP_MS) * TRANSITION_FRAME_STEP_MS
 }
 
-/** 帧数不满足生成条件时返回原因，否则返回 null。 */
+/** 帧数不足生成条件时返回原因，否则返回 null。 */
 export function validateFrameCount(count: number): string | null {
   if (count < MIN_FRAME_COUNT) {
     return `至少选择 ${MIN_FRAME_COUNT} 枚徽章才能生成轮播`
-  }
-  if (count > MAX_FRAME_COUNT) {
-    return `最多支持 ${MAX_FRAME_COUNT} 帧（当前 ${count} 帧），请先移除部分徽章`
   }
   return null
 }
@@ -793,7 +799,7 @@ export async function encodeWithinLimit<T>(
 
 /** 将多枚徽章编码为 512x512 无限循环的轮播 GIF，体积保证不超过 10MB。 */
 export async function makeGif(
-  badges: BadgeRecord[],
+  badges: (BadgeRecord | GifFrameInput)[],
   options: GifMakerOptions,
   onProgress?: (progress: GifMakerProgress) => void,
   signal?: AbortSignal,
@@ -801,9 +807,11 @@ export async function makeGif(
   const frameError = validateFrameCount(badges.length)
   if (frameError !== null) throw new Error(frameError)
   try {
-    const images = await Promise.all(
-      badges.map((badge) => loadBadgeImage(badge, options.iconSource, signal)),
-    )
+    const images = await Promise.all(badges.map((badge) =>
+      'exportIcon' in badge
+        ? loadBadgeImage(badge, options.iconSource, signal)
+        : loadImageUrl(badge.src, signal),
+    ))
     throwIfAborted(signal)
     const sources: FrameSource[] = images.map((image) => ({
       image,
@@ -829,4 +837,30 @@ export async function makeGif(
     if (signal?.aborted) throw new GifCancelledError()
     throw error
   }
+}
+
+/** 加载用户本地预览 URL 或外链图片，并在 GIF 编码前解码为位图。 */
+function loadImageUrl(url: string, signal?: AbortSignal): Promise<HTMLImageElement> {
+  throwIfAborted(signal)
+  return new Promise((resolve, reject) => {
+    const image = new Image()
+    const cleanup = () => {
+      image.onload = null
+      image.onerror = null
+      signal?.removeEventListener('abort', onAbort)
+    }
+    const onAbort = () => {
+      cleanup()
+      reject(new GifCancelledError())
+    }
+    image.onload = () => { cleanup(); resolve(image) }
+    image.onerror = () => {
+      cleanup()
+      reject(new Error('图片加载失败或不支持跨域读取，请下载图片后通过本地上传添加'))
+    }
+    signal?.addEventListener('abort', onAbort, { once: true })
+    // 必须在 src 之前设置，避免外链虽可显示却污染导出画布。
+    image.crossOrigin = 'anonymous'
+    image.src = url
+  })
 }

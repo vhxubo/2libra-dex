@@ -311,11 +311,16 @@ describe('GifMakerDialog 帧数校验', () => {
     expect(screen.getByText(/至少选择 2 枚徽章才能生成轮播/)).toBeInTheDocument()
   })
 
-  it('超过 12 枚时禁用生成并说明原因', () => {
+  it('超过 12 枚时仍允许生成', () => {
     renderDialog({ badges: Array.from({ length: 13 }, (_, i) => makeBadge(`b${i}`)) })
 
-    expect(screen.getByRole('button', { name: '生成 GIF' })).toBeDisabled()
-    expect(screen.getByText(/最多支持 12 帧（当前 13 帧）/)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '生成 GIF' })).toBeEnabled()
+    expect(screen.queryByText(/最多支持 12 帧/)).not.toBeInTheDocument()
+  })
+
+  it('仅有本地图片时隐藏图鉴图标大小', () => {
+    renderDialog({ badges: [] })
+    expect(screen.queryByRole('region', { name: '图鉴图标大小' })).not.toBeInTheDocument()
   })
 })
 

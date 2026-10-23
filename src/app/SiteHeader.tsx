@@ -72,6 +72,13 @@ export function SiteHeader() {
           >
             潘多拉事件
           </NavLink>
+          <NavLink
+            to="/gif-maker"
+            className={({ isActive }) => cn(
+              'whitespace-nowrap rounded-md px-3 py-1.5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
+              isActive ? 'bg-accent font-medium text-accent-foreground' : 'text-muted-foreground hover:text-foreground',
+            )}
+          >GIF 工具</NavLink>
           <HeaderAuth />
           <a
             href="https://github.com/vhxubo/2libra-dex"
