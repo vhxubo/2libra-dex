@@ -60,7 +60,7 @@ export function SiteHeader() {
             徽章图鉴
           </NavLink>
           <NavLink
-            to="/pandora"
+            to="/pandoras"
             className={({ isActive }) =>
               cn(
                 'whitespace-nowrap rounded-md px-3 py-1.5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',

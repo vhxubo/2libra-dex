@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest'
 import { PANDORA_EVENT_COUNT } from './data'
 import PandoraEventsPage from './PandoraEventsPage'
 
-function renderPage(initialEntry = '/pandora') {
+function renderPage(initialEntry = '/pandoras') {
   return render(
     <MemoryRouter initialEntries={[initialEntry]}>
       <PandoraEventsPage />
@@ -104,11 +104,11 @@ describe('PandoraEventsPage', () => {
   })
 
   it('URL 参数恢复搜索与排序视图', () => {
-    const search = renderPage('/pandora?q=金币雨')
+    const search = renderPage('/pandoras?q=金币雨')
     expect(getGroupRows()).toHaveLength(1)
     search.unmount()
 
-    renderPage('/pandora?sort=rarity-asc')
+    renderPage('/pandoras?sort=rarity-asc')
     expect(getGroupRows()[0].textContent).toContain('回归起点')
   })
 

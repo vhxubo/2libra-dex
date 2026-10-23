@@ -14,7 +14,7 @@ export default function App() {
         <Routes>
           <Route path="/" element={<Navigate to="/badges" replace />} />
           <Route path="/badges" element={<BadgeDexPage />} />
-          <Route path="/pandora" element={<PandoraEventsPage />} />
+          <Route path="/pandoras" element={<PandoraEventsPage />} />
           <Route path="/sources" element={<DataSourcesPage />} />
           <Route path="/auth/callback" element={<AuthCallbackPage />} />
           <Route path="*" element={<Navigate to="/badges" replace />} />
