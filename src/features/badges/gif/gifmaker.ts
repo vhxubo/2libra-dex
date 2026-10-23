@@ -9,7 +9,8 @@ export const MAX_GIF_BYTES = 10 * 1024 * 1024
 export const COLOR_LADDER = [256, 128, 64] as const
 /** 徽章内容在画布中的最大占比，四周留白避免贴边。 */
 const CONTENT_SCALE = 0.875
-const FRAME_BACKGROUND = '#ffffff'
+/** 帧背景色：GIF 不支持透明与渐变淡出，统一铺白底。 */
+export const FRAME_BACKGROUND = '#ffffff'
 
 // ===== 帧间隔 =====
 
@@ -32,15 +33,52 @@ export const MAX_FRAME_COUNT = 12
 
 // ===== 切换效果 =====
 
-export const GIF_EFFECTS = ['cut', 'fade', 'zoom', 'slide'] as const
+export const GIF_EFFECTS = [
+  'cut',
+  'fade',
+  'zoom',
+  'blur',
+  'slide',
+  'slideUp',
+  'circle',
+  'flip',
+  'pixel',
+  'glitch',
+  'bounce',
+  'rotate',
+  'shine',
+  'ripple',
+] as const
 export type GifEffect = (typeof GIF_EFFECTS)[number]
 
 export const EFFECT_LABELS: Record<GifEffect, string> = {
   cut: '直接切换',
   fade: '淡入淡出',
   zoom: '缩放切换',
+  blur: '模糊聚焦',
   slide: '左右滑动',
+  slideUp: '上下滑动',
+  circle: '圆形擦除',
+  flip: '翻牌',
+  pixel: '像素溶解',
+  glitch: '故障闪烁',
+  bounce: '弹跳登场',
+  rotate: '旋转切换',
+  shine: '闪光揭示',
+  ripple: '波纹扩散',
 }
+
+/** 设置面板的效果分组：效果较多时按「基础、方向、趣味」分三行展示。 */
+export interface EffectGroup {
+  label: string
+  effects: readonly GifEffect[]
+}
+
+export const EFFECT_GROUPS: readonly EffectGroup[] = [
+  { label: '基础', effects: ['cut', 'fade', 'zoom', 'blur'] },
+  { label: '方向', effects: ['slide', 'slideUp', 'circle', 'flip'] },
+  { label: '趣味', effects: ['pixel', 'glitch', 'bounce', 'rotate', 'shine', 'ripple'] },
+]
 
 /** 首版默认直接切换，避免突然增加编码耗时。 */
 export const DEFAULT_EFFECT: GifEffect = 'cut'
@@ -259,7 +297,7 @@ export function loadBadgeImage(
 
 // ===== 帧渲染 =====
 
-interface FrameSource {
+export interface FrameSource {
   image: HTMLImageElement
   layout: FrameLayout
 }
@@ -273,22 +311,158 @@ function createCanvasContext(size: number): CanvasRenderingContext2D {
   return ctx
 }
 
-function drawFrameSource(
+interface TransformOptions {
+  scale?: number
+  scaleX?: number
+  scaleY?: number
+  offsetX?: number
+  offsetY?: number
+  /** 绕绘制中心旋转的角度（弧度）。 */
+  rotate?: number
+}
+
+/** 以徽章绘制中心为原点做缩放、位移与旋转，供翻牌、旋转、滑动等效果复用。 */
+function drawTransformed(
+  ctx: CanvasRenderingContext2D,
+  source: FrameSource,
+  options: TransformOptions = {},
+): void {
+  const { layout, image } = source
+  const { scale = 1, scaleX = scale, scaleY = scale, offsetX = 0, offsetY = 0, rotate = 0 } =
+    options
+  const centerX = layout.x + layout.width / 2 + offsetX
+  const centerY = layout.y + layout.height / 2 + offsetY
+  const width = layout.width * scaleX
+  const height = layout.height * scaleY
+  if (rotate === 0) {
+    ctx.drawImage(image, centerX - width / 2, centerY - height / 2, width, height)
+    return
+  }
+  ctx.save()
+  ctx.translate(centerX, centerY)
+  ctx.rotate(rotate)
+  ctx.drawImage(image, -width / 2, -height / 2, width, height)
+  ctx.restore()
+}
+
+/** 按原布局绘制徽章，可整体等比缩放与水平偏移。 */
+export function drawFrameSource(
   ctx: CanvasRenderingContext2D,
   source: FrameSource,
   scale = 1,
   offsetX = 0,
 ): void {
-  const { layout, image } = source
-  if (scale === 1) {
-    ctx.drawImage(image, layout.x + offsetX, layout.y, layout.width, layout.height)
-    return
+  drawTransformed(ctx, source, { scale, offsetX })
+}
+
+/** 确定性伪随机（0..1）：预览与每次编码重试对同一输入产生一致的故障帧。 */
+function pseudoRandom(seed: number): number {
+  const x = Math.sin(seed * 127.1 + 311.7) * 43758.5453
+  return x - Math.floor(x)
+}
+
+const PIXEL_GRID = 12
+let pixelThresholds: Float32Array | null = null
+
+/** 像素溶解的格子切换阈值表：固定种子洗牌后按名次均匀分布在 (0,1)，任意进度下切换比例恒定。 */
+function getPixelThresholds(): Float32Array {
+  if (pixelThresholds === null) {
+    const count = PIXEL_GRID * PIXEL_GRID
+    const cells = Array.from({ length: count }, (_, index) => index)
+    let seed = 0x02f6e2b1
+    for (let i = count - 1; i > 0; i--) {
+      seed = (seed * 1664525 + 1013904223) >>> 0
+      const j = seed % (i + 1)
+      const swap = cells[j]
+      cells[j] = cells[i]
+      cells[i] = swap
+    }
+    const table = new Float32Array(count)
+    cells.forEach((cell, rank) => {
+      table[cell] = (rank + 0.5) / count
+    })
+    pixelThresholds = table
   }
-  const centerX = layout.x + layout.width / 2 + offsetX
-  const centerY = layout.y + layout.height / 2
-  const width = layout.width * scale
-  const height = layout.height * scale
-  ctx.drawImage(image, centerX - width / 2, centerY - height / 2, width, height)
+  return pixelThresholds
+}
+
+/** 复用的离屏画布：故障重影染色与模糊缩放都在这里中转，避免逐帧分配。 */
+let scratchCanvas: HTMLCanvasElement | null = null
+
+function prepareScratch(width: number, height: number): CanvasRenderingContext2D | null {
+  scratchCanvas ??= document.createElement('canvas')
+  const ctx = scratchCanvas.getContext('2d')
+  if (ctx === null) return null
+  if (scratchCanvas.width !== width || scratchCanvas.height !== height) {
+    // 修改画布尺寸会自动清空，同尺寸复用时需手动清空
+    scratchCanvas.width = width
+    scratchCanvas.height = height
+  } else {
+    ctx.clearRect(0, 0, width, height)
+  }
+  ctx.globalCompositeOperation = 'source-over'
+  return ctx
+}
+
+/** 纯色剪影以低透明度叠印并偏移，模拟故障效果的 RGB 通道分离边缘。 */
+function drawTintedGhost(
+  ctx: CanvasRenderingContext2D,
+  source: FrameSource,
+  color: string,
+  offsetX: number,
+  alpha: number,
+): void {
+  if (alpha <= 0) return
+  const { layout, image } = source
+  const width = Math.max(1, Math.round(layout.width))
+  const height = Math.max(1, Math.round(layout.height))
+  const scratch = prepareScratch(width, height)
+  if (scratch === null) return
+  scratch.drawImage(image, 0, 0, width, height)
+  scratch.globalCompositeOperation = 'source-in'
+  scratch.fillStyle = color
+  scratch.fillRect(0, 0, width, height)
+  scratch.globalCompositeOperation = 'source-over'
+  const prevAlpha = ctx.globalAlpha
+  ctx.globalAlpha = prevAlpha * alpha
+  ctx.drawImage(scratch.canvas, layout.x + offsetX, layout.y, width, height)
+  ctx.globalAlpha = prevAlpha
+}
+
+/** 用「缩小再放大」模拟模糊：不依赖 Canvas filter，Safari 等环境同样可用。 */
+function drawBlurred(
+  ctx: CanvasRenderingContext2D,
+  source: FrameSource,
+  amount: number,
+  alpha: number,
+): void {
+  if (alpha <= 0) return
+  const { layout, image } = source
+  const prevAlpha = ctx.globalAlpha
+  ctx.globalAlpha = prevAlpha * alpha
+  if (amount <= 0.05) {
+    ctx.drawImage(image, layout.x, layout.y, layout.width, layout.height)
+  } else {
+    const divisor = 1 + amount * 15
+    const width = Math.max(1, Math.round(layout.width / divisor))
+    const height = Math.max(1, Math.round(layout.height / divisor))
+    const scratch = prepareScratch(width, height)
+    if (scratch === null) {
+      ctx.globalAlpha = prevAlpha
+      return
+    }
+    scratch.drawImage(image, 0, 0, width, height)
+    ctx.imageSmoothingEnabled = true
+    ctx.drawImage(scratch.canvas, layout.x, layout.y, layout.width, layout.height)
+  }
+  ctx.globalAlpha = prevAlpha
+}
+
+/** 回弹缓动（easeOutBack）：末段过冲约 15% 后回落到 1，让回弹在低帧数下也清晰可辨。 */
+function easeOutBack(t: number): number {
+  const c1 = 2.6
+  const c3 = c1 + 1
+  return 1 + c3 * (t - 1) ** 3 + c1 * (t - 1) ** 2
 }
 
 /** 把 from → to 在 progress（0..1）处的中间帧画到已清白底的 ctx 上。 */
@@ -320,10 +494,173 @@ export function renderTransition(
       drawFrameSource(ctx, to, 0.75 + 0.25 * t)
       ctx.globalAlpha = 1
       break
+    case 'blur':
+      // 当前徽章逐渐模糊淡出，下一枚从模糊中对焦清晰
+      drawBlurred(ctx, from, t, 1 - t)
+      drawBlurred(ctx, to, 1 - t, t)
+      break
     case 'slide':
       drawFrameSource(ctx, from, 1, -t * size)
       drawFrameSource(ctx, to, 1, (1 - t) * size)
       break
+    case 'slideUp':
+      // 当前徽章向上移出，下一枚从下方进入
+      drawTransformed(ctx, from, { offsetY: -t * size })
+      drawTransformed(ctx, to, { offsetY: (1 - t) * size })
+      break
+    case 'circle': {
+      // 圆形遮罩从中心向外扩散，揭示下一枚
+      drawFrameSource(ctx, from)
+      const radius = t * (size / Math.SQRT2)
+      if (radius > 0) {
+        ctx.save()
+        ctx.beginPath()
+        ctx.arc(size / 2, size / 2, radius, 0, Math.PI * 2)
+        ctx.clip()
+        drawFrameSource(ctx, to)
+        ctx.restore()
+      }
+      break
+    }
+    case 'flip': {
+      // 绕 Y 轴翻牌的 2D 近似：水平压缩到 0 后展开，中点翻面换徽章
+      const compress = Math.max(0.04, Math.abs(Math.cos(t * Math.PI)))
+      const stretch = 1 + 0.1 * Math.sin(t * Math.PI)
+      drawTransformed(ctx, t < 0.5 ? from : to, { scaleX: compress, scaleY: stretch })
+      break
+    }
+    case 'pixel': {
+      // 按固定乱序逐格切换：当前徽章溶解成方块，下一枚从方块中浮现
+      drawFrameSource(ctx, from)
+      const thresholds = getPixelThresholds()
+      const cell = size / PIXEL_GRID
+      ctx.save()
+      ctx.beginPath()
+      for (const [index, threshold] of thresholds.entries()) {
+        if (threshold > t) continue
+        ctx.rect((index % PIXEL_GRID) * cell, Math.floor(index / PIXEL_GRID) * cell, cell, cell)
+      }
+      ctx.clip()
+      drawFrameSource(ctx, to)
+      ctx.restore()
+      break
+    }
+    case 'glitch': {
+      // 故障闪烁：横向抖动 + RGB 分离重影 + 条带错位 + 噪点，中点切换徽章
+      const active = t < 0.5 ? from : to
+      const intensity = Math.sin(Math.PI * t)
+      const phase = Math.floor(t * 64)
+      const jitter = (pseudoRandom(phase) - 0.5) * 2 * 0.06 * size * intensity
+      drawTransformed(ctx, active, { offsetX: jitter })
+      const split = size * (0.004 + 0.02 * intensity)
+      drawTintedGhost(ctx, active, '#ff3355', -split, 0.35 * intensity)
+      drawTintedGhost(ctx, active, '#22ddff', split, 0.35 * intensity)
+      for (let i = 0; i < 4; i++) {
+        const chance = pseudoRandom(phase * 7.3 + i * 13.7)
+        if (chance < 0.35) continue
+        const position = pseudoRandom(phase * 3.1 + i * 5.9)
+        const bandHeight = size * (0.02 + 0.06 * position)
+        const y = position * (size - bandHeight)
+        const shift = (chance - 0.5) * 2 * 0.07 * size * intensity
+        if (Math.abs(shift) < 1) continue
+        ctx.drawImage(ctx.canvas, 0, y, size, bandHeight, shift, y, size, bandHeight)
+      }
+      const dots = Math.round(36 * intensity)
+      for (let i = 0; i < dots; i++) {
+        const x = pseudoRandom(phase * 11.7 + i * 29.3) * (size - 4)
+        const y = pseudoRandom(phase * 19.1 + i * 7.7) * (size - 4)
+        const dotSize = Math.max(
+          1,
+          Math.round((size / 128) * (1 + pseudoRandom(phase * 5.3 + i * 3.3) * 2)),
+        )
+        ctx.fillStyle = i % 3 === 0 ? '#ffffff' : i % 3 === 1 ? '#141414' : '#ffd400'
+        ctx.fillRect(Math.floor(x), Math.floor(y), dotSize, dotSize)
+      }
+      break
+    }
+    case 'bounce': {
+      // 新徽章从小尺寸弹到正常大小并轻微回弹，旧徽章快速缩小淡出
+      const out = Math.min(1, t * 2)
+      if (out < 1) {
+        ctx.globalAlpha = 1 - out
+        drawFrameSource(ctx, from, 1 - 0.2 * out)
+        ctx.globalAlpha = 1
+      }
+      if (t > 0) {
+        ctx.globalAlpha = Math.min(1, t * 2)
+        drawFrameSource(ctx, to, 0.25 + 0.75 * easeOutBack(t))
+        ctx.globalAlpha = 1
+      }
+      break
+    }
+    case 'rotate':
+      // 当前徽章旋转缩小退场，下一枚反向旋转放大进场
+      if (t < 1) {
+        ctx.globalAlpha = 1 - t
+        drawTransformed(ctx, from, { scale: 1 - 0.75 * t, rotate: -0.75 * Math.PI * t })
+        ctx.globalAlpha = 1
+      }
+      if (t > 0) {
+        ctx.globalAlpha = t
+        drawTransformed(ctx, to, { scale: 0.25 + 0.75 * t, rotate: 0.75 * Math.PI * (1 - t) })
+        ctx.globalAlpha = 1
+      }
+      break
+    case 'shine': {
+      // 暖白高光带从左扫到右，扫过之处揭示下一枚
+      const band = size * 0.3
+      const sweep = t * (size + band)
+      const leftWidth = Math.min(size, sweep - band)
+      if (leftWidth > 0) {
+        ctx.save()
+        ctx.beginPath()
+        ctx.rect(0, 0, leftWidth, size)
+        ctx.clip()
+        drawFrameSource(ctx, to)
+        ctx.restore()
+      }
+      if (leftWidth < size) {
+        const rightX = Math.max(0, leftWidth)
+        ctx.save()
+        ctx.beginPath()
+        ctx.rect(rightX, 0, size - rightX, size)
+        ctx.clip()
+        drawFrameSource(ctx, from)
+        ctx.restore()
+      }
+      const glow = ctx.createLinearGradient(sweep - band, 0, sweep, 0)
+      glow.addColorStop(0, 'rgba(255, 244, 214, 0)')
+      glow.addColorStop(0.5, 'rgba(255, 248, 224, 0.95)')
+      glow.addColorStop(1, 'rgba(255, 244, 214, 0)')
+      ctx.fillStyle = glow
+      ctx.fillRect(sweep - band, 0, band, size)
+      break
+    }
+    case 'ripple': {
+      // 中心波纹向外扩散，波纹之内露出下一枚，波前拖着渐淡的水纹环
+      drawFrameSource(ctx, from)
+      const maxRadius = size / Math.SQRT2
+      const radius = t * maxRadius
+      if (radius > 0) {
+        ctx.save()
+        ctx.beginPath()
+        ctx.arc(size / 2, size / 2, radius, 0, Math.PI * 2)
+        ctx.clip()
+        drawFrameSource(ctx, to)
+        ctx.restore()
+      }
+      const gap = size / 9
+      for (let i = 0; i < 3; i++) {
+        const ringRadius = radius - i * gap
+        if (ringRadius <= 0) break
+        ctx.strokeStyle = `rgba(96, 145, 255, ${0.5 * (1 - i / 3) * (1 - t)})`
+        ctx.lineWidth = Math.max(1.5, size / 128)
+        ctx.beginPath()
+        ctx.arc(size / 2, size / 2, ringRadius, 0, Math.PI * 2)
+        ctx.stroke()
+      }
+      break
+    }
   }
 }
 

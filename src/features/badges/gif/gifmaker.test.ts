@@ -17,11 +17,12 @@ import {
   encodeWithinLimit,
   estimateDurationMs,
   formatSeconds,
+  EFFECT_GROUPS,
+  EFFECT_LABELS,
   GIF_EFFECTS,
   makeGif,
   normalizeDelayMs,
   validateFrameCount,
-  type GifEffect,
 } from './gifmaker'
 
 describe('帧间隔', () => {
@@ -271,13 +272,42 @@ describe('makeGif 取消', () => {
 })
 
 describe('效果与图标来源常量', () => {
-  it('首版仅提供四种效果，默认直接切换', () => {
-    expect([...GIF_EFFECTS]).toEqual(['cut', 'fade', 'zoom', 'slide'])
+  it('提供 14 种效果，默认仍为直接切换', () => {
+    expect([...GIF_EFFECTS]).toEqual([
+      'cut',
+      'fade',
+      'zoom',
+      'blur',
+      'slide',
+      'slideUp',
+      'circle',
+      'flip',
+      'pixel',
+      'glitch',
+      'bounce',
+      'rotate',
+      'shine',
+      'ripple',
+    ])
     expect(DEFAULT_EFFECT).toBe('cut')
   })
 
-  it('常用过渡效果在默认间隔下可辨识（过渡帧数 ≥ 4）', () => {
-    for (const effect of ['fade', 'zoom', 'slide'] as GifEffect[]) {
+  it('每种效果都有展示名称', () => {
+    for (const effect of GIF_EFFECTS) {
+      expect(EFFECT_LABELS[effect].length).toBeGreaterThan(0)
+    }
+  })
+
+  it('效果分组按「基础、方向、趣味」组织，恰好覆盖全部效果一次', () => {
+    expect(EFFECT_GROUPS.map((group) => group.label)).toEqual(['基础', '方向', '趣味'])
+    const grouped = EFFECT_GROUPS.flatMap((group) => [...group.effects])
+    expect(new Set(grouped).size).toBe(grouped.length)
+    expect([...grouped].sort()).toEqual([...GIF_EFFECTS].sort())
+  })
+
+  it('所有过渡效果在默认间隔下可辨识（过渡帧数 ≥ 4）', () => {
+    for (const effect of GIF_EFFECTS) {
+      if (effect === 'cut') continue
       expect(computeTransitionPlan(DEFAULT_DELAY_MS, effect).steps).toBeGreaterThanOrEqual(4)
     }
   })

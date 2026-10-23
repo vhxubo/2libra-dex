@@ -28,8 +28,8 @@ import {
   DEFAULT_DELAY_MS,
   DEFAULT_EFFECT,
   DELAY_OPTIONS,
+  EFFECT_GROUPS,
   EFFECT_LABELS,
-  GIF_EFFECTS,
   GifCancelledError,
   ICON_SOURCE_LABELS,
   formatSeconds,
@@ -393,33 +393,40 @@ export function GifMakerDialog({
               <h3 className="text-sm font-medium">切换效果</h3>
               <EffectPreview badges={orderedBadges} effect={effect} iconSource={iconSource} />
             </div>
-            <div
-              role="group"
-              aria-label="选择切换效果"
-              className="inline-flex flex-wrap items-center rounded-md border border-input bg-card p-0.5"
-            >
-              {GIF_EFFECTS.map((option) => (
-                <button
-                  key={option}
-                  type="button"
-                  aria-pressed={effect === option}
-                  disabled={generating}
-                  onClick={() => {
-                    if (effect !== option) {
-                      markConfigChanged()
-                      setEffect(option)
-                      writeStoredEffect(option)
-                    }
-                  }}
-                  className={cn(
-                    'inline-flex h-8 items-center rounded-[6px] px-2.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50',
-                    effect === option
-                      ? 'bg-primary text-primary-foreground'
-                      : 'text-muted-foreground hover:text-foreground',
-                  )}
-                >
-                  {EFFECT_LABELS[option]}
-                </button>
+            <div className="flex flex-col gap-1.5">
+              {EFFECT_GROUPS.map((group) => (
+                <div key={group.label} className="flex flex-wrap items-center gap-2">
+                  <span className="w-7 shrink-0 text-xs text-muted-foreground">{group.label}</span>
+                  <div
+                    role="group"
+                    aria-label={`${group.label}切换效果`}
+                    className="inline-flex flex-wrap items-center rounded-md border border-input bg-card p-0.5"
+                  >
+                    {group.effects.map((option) => (
+                      <button
+                        key={option}
+                        type="button"
+                        aria-pressed={effect === option}
+                        disabled={generating}
+                        onClick={() => {
+                          if (effect !== option) {
+                            markConfigChanged()
+                            setEffect(option)
+                            writeStoredEffect(option)
+                          }
+                        }}
+                        className={cn(
+                          'inline-flex h-8 items-center rounded-[6px] px-2.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50',
+                          effect === option
+                            ? 'bg-primary text-primary-foreground'
+                            : 'text-muted-foreground hover:text-foreground',
+                        )}
+                      >
+                        {EFFECT_LABELS[option]}
+                      </button>
+                    ))}
+                  </div>
+                </div>
               ))}
             </div>
           </section>
