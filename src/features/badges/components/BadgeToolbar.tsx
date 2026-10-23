@@ -2,6 +2,7 @@ import { useRef, useState } from 'react'
 import {
   ArrowUpDown,
   ChevronDown,
+  Film,
   LayoutGrid,
   ListFilter,
   Search,
@@ -37,11 +38,14 @@ interface BadgeToolbarProps {
   view: ViewMode
   levelCounts: Record<BadgeLevel, number>
   attrTypeCounts: Record<AttrType, number>
+  selectMode: boolean
+  selectedCount: number
   onQueryChange: (q: string) => void
   onToggleLevel: (level: BadgeLevel) => void
   onAttrTypeChange: (attrType: AttrType | null) => void
   onSortChange: (sort: SortKey) => void
   onViewChange: (view: ViewMode) => void
+  onToggleSelectMode: () => void
 }
 
 export function BadgeToolbar({
@@ -52,11 +56,14 @@ export function BadgeToolbar({
   view,
   levelCounts,
   attrTypeCounts,
+  selectMode,
+  selectedCount,
   onQueryChange,
   onToggleLevel,
   onAttrTypeChange,
   onSortChange,
   onViewChange,
+  onToggleSelectMode,
 }: BadgeToolbarProps) {
   const activeLevelSummary =
     levels.length === 0
@@ -192,6 +199,19 @@ export function BadgeToolbar({
               </DropdownMenuRadioGroup>
             </DropdownMenuContent>
           </DropdownMenu>
+
+          <Button
+            variant={selectMode ? 'default' : 'outline'}
+            size="sm"
+            aria-pressed={selectMode}
+            onClick={onToggleSelectMode}
+            className="min-w-0 flex-1 gap-1.5 sm:flex-none"
+          >
+            <Film aria-hidden />
+            <span className="min-w-0 truncate">
+              {selectMode ? `退出选择 · 已选 ${selectedCount}` : '制作动图'}
+            </span>
+          </Button>
 
           <div
             role="group"

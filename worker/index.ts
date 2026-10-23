@@ -22,6 +22,8 @@ interface Env {
 }
 
 const AUTH_PATH_PREFIX = '/api/auth/'
+const BADGE_ICON_URL = 'https://r2.2libra.com/badge/'
+const BADGE_ICON_ID_PATTERN = /^[a-z0-9_-]{1,64}$/
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
@@ -29,8 +31,37 @@ export default {
     if (url.pathname.startsWith(AUTH_PATH_PREFIX)) {
       return handleAuthRequest(request, env)
     }
+    if (url.pathname === '/api/badge-icon') {
+      return handleBadgeIconRequest(url)
+    }
     return serveAsset(request, env, url)
   },
+}
+
+/** 同源代理徽章 SVG，兜底浏览器 canvas 导出时 R2 直连的 CORS 限制。 */
+async function handleBadgeIconRequest(url: URL): Promise<Response> {
+  const id = url.searchParams.get('id') ?? ''
+  if (!BADGE_ICON_ID_PATTERN.test(id)) {
+    return Response.json({ message: '徽章 id 非法' }, { status: 400 })
+  }
+  let upstream: Response
+  try {
+    upstream = await fetch(`${BADGE_ICON_URL}${id}.svg`)
+  } catch {
+    return Response.json({ message: '徽章图标获取失败' }, { status: 502 })
+  }
+  if (
+    upstream.status !== 200 ||
+    !(upstream.headers.get('content-type') ?? '').toLowerCase().includes('svg')
+  ) {
+    return Response.json({ message: '徽章图标不存在' }, { status: 502 })
+  }
+  return new Response(upstream.body, {
+    headers: {
+      'Content-Type': 'image/svg+xml',
+      'Cache-Control': 'public, max-age=86400',
+    },
+  })
 }
 
 /** 非 /api/auth 路径交给静态资产；未命中且接受 HTML 时回退 index.html，保留 SPA 路由。 */

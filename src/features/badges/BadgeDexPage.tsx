@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { Database, SearchX, X } from 'lucide-react'
+import { Database, Film, SearchX, Sparkles, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Pagination } from '@/components/Pagination'
 import { BadgeCard } from './components/BadgeCard'
 import { BadgeDetailDialog } from './components/BadgeDetailDialog'
 import { BadgeTableView } from './components/BadgeTableView'
 import { BadgeToolbar } from './components/BadgeToolbar'
+import { GifMakerDialog } from './gif/GifMakerDialog'
 import {
   ATTR_TYPE_COUNTS,
   BADGES,
@@ -129,6 +130,10 @@ function FilterChips({ state, onRemove, onClearAll }: FilterChipsProps) {
 export default function BadgeDexPage() {
   const [state, update] = useBadgeUrlState()
   const [pageSize, setPageSize] = useState<number>(DEFAULT_PAGE_SIZE)
+  // 制作动图的多选状态只存在于页面内，不进 URL；顺序即点击顺序
+  const [selectMode, setSelectMode] = useState(false)
+  const [selectedIds, setSelectedIds] = useState<string[]>([])
+  const [gifDialogOpen, setGifDialogOpen] = useState(false)
 
   const filtered = useMemo(
     () =>
@@ -183,9 +188,27 @@ export default function BadgeDexPage() {
     [update],
   )
   const handleViewChange = useCallback(
-    (view: ViewMode) => update({ view }),
+    (view: ViewMode) => {
+      update({ view })
+      // 选择模式只支持卡片视图，切到表格时退出
+      if (view === 'table') setSelectMode(false)
+    },
     [update],
   )
+  const handleToggleSelectMode = useCallback(() => {
+    setSelectMode((prev) => {
+      if (!prev) {
+        // 从表格视图发起时切回卡片视图，保证选择交互可用
+        update({ view: 'card' })
+      }
+      return !prev
+    })
+  }, [update])
+  const handleToggleSelect = useCallback((id: string) => {
+    setSelectedIds((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id],
+    )
+  }, [])
   const handlePageSizeChange = useCallback(
     (size: number) => {
       setPageSize(size)
@@ -200,6 +223,14 @@ export default function BadgeDexPage() {
   const handleRemoveFilter = useCallback(
     (patch: Partial<BadgeUrlState>) => update({ ...patch, page: 1 }),
     [update],
+  )
+
+  const selectedBadges = useMemo(
+    () =>
+      selectedIds
+        .map((id) => BADGES.find((badge) => badge.id === id))
+        .filter((badge): badge is (typeof BADGES)[number] => badge !== undefined),
+    [selectedIds],
   )
 
   return (
@@ -231,6 +262,9 @@ export default function BadgeDexPage() {
         onAttrTypeChange={handleAttrTypeChange}
         onSortChange={handleSortChange}
         onViewChange={handleViewChange}
+        selectMode={selectMode}
+        selectedCount={selectedIds.length}
+        onToggleSelectMode={handleToggleSelectMode}
       />
 
       <div className="mt-4 flex flex-wrap items-center gap-2">
@@ -253,7 +287,14 @@ export default function BadgeDexPage() {
             className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
           >
             {pageItems.map((badge) => (
-              <BadgeCard key={badge.id} badge={badge} onOpen={(id) => update({ badgeId: id })} />
+              <BadgeCard
+                key={badge.id}
+                badge={badge}
+                onOpen={(id) => update({ badgeId: id })}
+                selectMode={selectMode}
+                selected={selectedIds.includes(badge.id)}
+                onToggleSelect={handleToggleSelect}
+              />
             ))}
           </div>
         ) : (
@@ -277,6 +318,48 @@ export default function BadgeDexPage() {
             onPageSizeChange={handlePageSizeChange}
           />
         </div>
+      )}
+
+      {selectMode && (
+        <div className="fixed inset-x-0 bottom-4 z-40 flex justify-center px-4">
+          <div className="flex items-center gap-3 rounded-full border border-border bg-card/95 py-2 pl-5 pr-2 shadow-lg backdrop-blur">
+            <Film className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+            <p className="text-sm" aria-live="polite">
+              已选{' '}
+              <span className="font-semibold tabular-nums text-foreground">
+                {selectedIds.length}
+              </span>{' '}
+              枚徽章
+            </p>
+            <Button
+              variant="ghost"
+              size="sm"
+              disabled={selectedIds.length === 0}
+              onClick={() => setSelectedIds([])}
+            >
+              清空
+            </Button>
+            <Button
+              size="sm"
+              disabled={selectedIds.length < 2}
+              onClick={() => setGifDialogOpen(true)}
+              className="gap-1.5"
+            >
+              <Sparkles className="size-3.5" aria-hidden />
+              生成 GIF
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {gifDialogOpen && (
+        <GifMakerDialog
+          badges={selectedBadges}
+          onOpenChange={(open) => {
+            if (!open) setGifDialogOpen(false)
+          }}
+          onRemoveBadge={handleToggleSelect}
+        />
       )}
 
       <BadgeDetailDialog

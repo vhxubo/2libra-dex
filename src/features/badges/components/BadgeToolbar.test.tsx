@@ -28,6 +28,9 @@ function renderToolbar({ q = '' }: { q?: string } = {}) {
     onAttrTypeChange: vi.fn(),
     onSortChange: vi.fn(),
     onViewChange: vi.fn(),
+    selectMode: false,
+    selectedCount: 0,
+    onToggleSelectMode: vi.fn(),
   }
   const { rerender } = render(<BadgeToolbar {...props} />)
   const rerenderWithQ = (nextQ: string) =>
