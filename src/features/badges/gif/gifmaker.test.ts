@@ -4,15 +4,19 @@ import {
   COLOR_LADDER,
   DEFAULT_DELAY_MS,
   DEFAULT_EFFECT,
+  DEFAULT_SPIN_STEP_DEG,
   DELAY_STEP_MS,
   GifCancelledError,
   MAX_DELAY_MS,
+  MAX_SPIN_STEP_DEG,
   MIN_DELAY_MS,
+  MIN_SPIN_STEP_DEG,
   MAX_FRAME_COUNT,
   MIN_FRAME_COUNT,
   buildFramePlan,
   computeFrameLayout,
   computeHoldMs,
+  computeSpinRotationRad,
   computeTransitionPlan,
   encodeWithinLimit,
   estimateDurationMs,
@@ -22,6 +26,7 @@ import {
   GIF_EFFECTS,
   makeGif,
   normalizeDelayMs,
+  normalizeSpinStepDeg,
   validateFrameCount,
 } from './gifmaker'
 
@@ -106,16 +111,18 @@ describe('computeFrameLayout', () => {
 })
 
 describe('computeTransitionPlan', () => {
-  it('直接切换不生成过渡帧', () => {
+  it('直接切换与逐帧旋转不生成过渡帧，停留帧独占间隔', () => {
     expect(computeTransitionPlan(400, 'cut')).toEqual({ steps: 0, frameMs: 0 })
     expect(computeHoldMs(400, 'cut')).toBe(400)
+    expect(computeTransitionPlan(400, 'spin')).toEqual({ steps: 0, frameMs: 0 })
+    expect(computeHoldMs(400, 'spin')).toBe(400)
   })
 
   it('过渡时长不超过间隔的 25% 或 220ms，采样 4–8 帧', () => {
     for (const delay of [100, 200, 400, 600, 800, 1200, 2000]) {
       for (const effect of GIF_EFFECTS) {
         const { steps, frameMs } = computeTransitionPlan(delay, effect)
-        if (effect === 'cut') continue
+        if (effect === 'cut' || effect === 'spin') continue
         expect(steps).toBeGreaterThanOrEqual(4)
         expect(steps).toBeLessThanOrEqual(8)
         expect(frameMs).toBeGreaterThanOrEqual(20)
@@ -227,7 +234,12 @@ const badge = (id: string): BadgeRecord => ({
   attr: '',
 })
 
-const defaultOptions = { delayMs: 400, effect: DEFAULT_EFFECT, iconSource: 'large' } as const
+const defaultOptions = {
+  delayMs: 400,
+  effect: DEFAULT_EFFECT,
+  iconSource: 'large',
+  spinStepDeg: DEFAULT_SPIN_STEP_DEG,
+} as const
 
 describe('makeGif 取消', () => {
   afterEach(() => {
@@ -274,7 +286,7 @@ describe('makeGif 取消', () => {
 })
 
 describe('效果与图标来源常量', () => {
-  it('提供 13 种效果，默认仍为直接切换', () => {
+  it('提供 14 种效果，默认仍为直接切换', () => {
     expect([...GIF_EFFECTS]).toEqual([
       'cut',
       'fade',
@@ -288,6 +300,7 @@ describe('效果与图标来源常量', () => {
       'glitch',
       'bounce',
       'rotate',
+      'spin',
       'shine',
     ])
     expect(DEFAULT_EFFECT).toBe('cut')
@@ -308,8 +321,38 @@ describe('效果与图标来源常量', () => {
 
   it('所有过渡效果在默认间隔下可辨识（过渡帧数 ≥ 4）', () => {
     for (const effect of GIF_EFFECTS) {
-      if (effect === 'cut') continue
+      if (effect === 'cut' || effect === 'spin') continue
       expect(computeTransitionPlan(DEFAULT_DELAY_MS, effect).steps).toBeGreaterThanOrEqual(4)
     }
+  })
+})
+
+describe('逐帧旋转（spin）', () => {
+  it('默认步进 20°（与参考文件一致），规范化钳位 ±180 并取整', () => {
+    expect(DEFAULT_SPIN_STEP_DEG).toBe(20)
+    expect(MIN_SPIN_STEP_DEG).toBe(-180)
+    expect(MAX_SPIN_STEP_DEG).toBe(180)
+    expect(normalizeSpinStepDeg(Number.NaN)).toBe(DEFAULT_SPIN_STEP_DEG)
+    expect(normalizeSpinStepDeg(12.6)).toBe(13)
+    expect(normalizeSpinStepDeg(999)).toBe(180)
+    expect(normalizeSpinStepDeg(-999)).toBe(-180)
+    expect(normalizeSpinStepDeg(180)).toBe(180)
+  })
+
+  it('第 index 枚徽章累计旋转 index × 步进角，正数为逆时针（Canvas 取负）', () => {
+    expect(computeSpinRotationRad(0, 20)).toBeCloseTo(0)
+    // 20° = π/9
+    expect(computeSpinRotationRad(1, 20)).toBeCloseTo(-Math.PI / 9)
+    expect(computeSpinRotationRad(3, 20)).toBeCloseTo(-Math.PI / 3)
+    // 负步进角反向旋转
+    expect(computeSpinRotationRad(1, -20)).toBeCloseTo(Math.PI / 9)
+    // 步进角先规范化再计算
+    expect(computeSpinRotationRad(1, 999)).toBeCloseTo(-Math.PI)
+  })
+
+  it('帧计划与直接切换一致：每枚徽章只有一帧停留帧', () => {
+    const plan = buildFramePlan(4, { delayMs: 400, effect: 'spin' })
+    expect(plan).toHaveLength(4)
+    expect(plan.every((frame) => frame.kind === 'hold' && frame.delayMs === 400)).toBe(true)
   })
 })

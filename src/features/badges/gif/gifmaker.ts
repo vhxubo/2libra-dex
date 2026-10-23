@@ -43,6 +43,7 @@ export const GIF_EFFECTS = [
   'glitch',
   'bounce',
   'rotate',
+  'spin',
   'shine',
 ] as const
 export type GifEffect = (typeof GIF_EFFECTS)[number]
@@ -60,6 +61,7 @@ export const EFFECT_LABELS: Record<GifEffect, string> = {
   glitch: '故障闪烁',
   bounce: '弹跳登场',
   rotate: '旋转切换',
+  spin: '逐帧旋转',
   shine: '闪光揭示',
 }
 
@@ -72,7 +74,7 @@ export interface EffectGroup {
 export const EFFECT_GROUPS: readonly EffectGroup[] = [
   { label: '基础', effects: ['cut', 'fade', 'zoom', 'blur'] },
   { label: '方向', effects: ['slide', 'slideUp', 'circle', 'flip'] },
-  { label: '趣味', effects: ['pixel', 'glitch', 'bounce', 'rotate', 'shine'] },
+  { label: '趣味', effects: ['pixel', 'glitch', 'bounce', 'rotate', 'spin', 'shine'] },
 ]
 
 /** 首版默认直接切换，避免突然增加编码耗时。 */
@@ -80,6 +82,23 @@ export const DEFAULT_EFFECT: GifEffect = 'cut'
 
 export function isGifEffect(value: unknown): value is GifEffect {
   return typeof value === 'string' && (GIF_EFFECTS as readonly string[]).includes(value)
+}
+
+// ===== 逐帧旋转 =====
+
+/** 逐帧旋转默认步进角：与参考文件一致，每枚徽章逆时针多转 20°。 */
+export const DEFAULT_SPIN_STEP_DEG = 20
+/** 步进角下限；超过 ±180° 的步进与反向补角等价，钳位即可覆盖全部取值。 */
+export const MIN_SPIN_STEP_DEG = -180
+export const MAX_SPIN_STEP_DEG = 180
+/** 数值输入框步长（度）。 */
+export const SPIN_STEP_DEG_INPUT_STEP = 5
+
+/** 规范化步进角：NaN 回落默认，钳位 ±180°，取整到整数度。 */
+export function normalizeSpinStepDeg(value: number): number {
+  if (Number.isNaN(value)) return DEFAULT_SPIN_STEP_DEG
+  const clamped = Math.min(MAX_SPIN_STEP_DEG, Math.max(MIN_SPIN_STEP_DEG, value))
+  return Math.round(clamped)
 }
 
 // ===== 图标来源 =====
@@ -97,6 +116,8 @@ export interface GifMakerOptions {
   delayMs: number
   effect: GifEffect
   iconSource: GifIconSource
+  /** 逐帧旋转效果的每枚步进角（度），正数逆时针；其他效果忽略该值。 */
+  spinStepDeg: number
 }
 
 export interface GifMakerProgress {
@@ -172,9 +193,10 @@ const MIN_TRANSITION_STEPS = 4
 /**
  * 过渡时长取间隔的 25% 且不超过 220ms；间隔不足 800ms 时收紧到间隔的 40% 以内，
  * 避免快速轮播被过渡动画占满。每个过渡采样 4–8 帧。
+ * 逐帧旋转与直接切换一样不生成过渡帧：旋转在徽章间瞬时步进，停留帧独占间隔。
  */
 export function computeTransitionPlan(delayMs: number, effect: GifEffect): TransitionPlan {
-  if (effect === 'cut') return { steps: 0, frameMs: 0 }
+  if (effect === 'cut' || effect === 'spin') return { steps: 0, frameMs: 0 }
   const delay = normalizeDelayMs(delayMs)
   const cap = delay < 800 ? delay * 0.4 : MAX_TRANSITION_MS
   const duration = Math.min(delay * 0.25, cap)
@@ -352,6 +374,23 @@ export function drawFrameSource(
   drawTransformed(ctx, source, { scale, offsetX })
 }
 
+/**
+ * 逐帧旋转：第 index 枚徽章累计旋转 index × 步进角。
+ * 正步进角为逆时针（与参考文件一致）；Canvas y 轴向下，故换算为负弧度。
+ */
+export function computeSpinRotationRad(badgeIndex: number, spinStepDeg: number): number {
+  return (-normalizeSpinStepDeg(spinStepDeg) * badgeIndex * Math.PI) / 180
+}
+
+/** 绕绘制中心旋转绘制徽章停留帧，供逐帧旋转的编码与预览共用。 */
+export function drawFrameSourceRotated(
+  ctx: CanvasRenderingContext2D,
+  source: FrameSource,
+  rotate: number,
+): void {
+  drawTransformed(ctx, source, { rotate })
+}
+
 /** 确定性伪随机（0..1）：预览与每次编码重试对同一输入产生一致的故障帧。 */
 function pseudoRandom(seed: number): number {
   const x = Math.sin(seed * 127.1 + 311.7) * 43758.5453
@@ -474,6 +513,10 @@ export function renderTransition(
   const t = Math.min(1, Math.max(0, progress))
   switch (effect) {
     case 'cut':
+      drawFrameSource(ctx, to)
+      break
+    case 'spin':
+      // 逐帧旋转没有过渡帧（见 computeTransitionPlan）；万一被采样则退化为直接切换
       drawFrameSource(ctx, to)
       break
     case 'fade':
@@ -692,7 +735,16 @@ async function encodeGif(
     ctx.fillStyle = FRAME_BACKGROUND
     ctx.fillRect(0, 0, GIF_SIZE, GIF_SIZE)
     if (spec.kind === 'hold') {
-      drawFrameSource(ctx, from)
+      if (options.effect === 'spin') {
+        // 每枚徽章按出场顺序累计旋转一个步进角，徽章间硬切
+        drawFrameSourceRotated(
+          ctx,
+          from,
+          computeSpinRotationRad(spec.badgeIndex, options.spinStepDeg),
+        )
+      } else {
+        drawFrameSource(ctx, from)
+      }
     } else {
       const to = sources[(spec.badgeIndex + 1) % total]
       renderTransition(ctx, from, to, spec.progress, options.effect, GIF_SIZE)

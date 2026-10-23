@@ -4,7 +4,9 @@ import type { BadgeRecord } from '../types'
 import {
   FRAME_BACKGROUND,
   computeFrameLayout,
+  computeSpinRotationRad,
   drawFrameSource,
+  drawFrameSourceRotated,
   iconUrlFor,
   renderTransition,
   type FrameSource,
@@ -16,6 +18,8 @@ interface EffectPreviewProps {
   badges: BadgeRecord[]
   effect: GifEffect
   iconSource: GifIconSource
+  /** 逐帧旋转的步进角（度），仅 effect === 'spin' 时生效。 */
+  spinStepDeg: number
   className?: string
 }
 
@@ -25,7 +29,7 @@ const TRANSITION_MS = 480
 const PREVIEW_SIZE = 128
 
 /** 切换效果的小型实时预览：在前两枚已选徽章间按所选效果循环切换。 */
-export function EffectPreview({ badges, effect, iconSource, className }: EffectPreviewProps) {
+export function EffectPreview({ badges, effect, iconSource, spinStepDeg, className }: EffectPreviewProps) {
   const firstRef = useRef<HTMLImageElement>(null)
   const secondRef = useRef<HTMLImageElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -41,7 +45,9 @@ export function EffectPreview({ badges, effect, iconSource, className }: EffectP
     let raf = 0
     let start: number | null = null
     let disposed = false
-    const cycleMs = 2 * (HOLD_MS + TRANSITION_MS)
+    // 逐帧旋转与直接切换没有过渡阶段：循环只由两个停留阶段组成
+    const instant = effect === 'cut' || effect === 'spin'
+    const cycleMs = instant ? 2 * HOLD_MS : 2 * (HOLD_MS + TRANSITION_MS)
 
     const sourceOf = (image: HTMLImageElement): FrameSource | null => {
       if (!image.complete || image.naturalWidth <= 0) return null
@@ -80,6 +86,10 @@ export function EffectPreview({ badges, effect, iconSource, className }: EffectP
           if (effect === 'cut') {
             // 直接切换没有过渡帧：停留阶段始终显示当前徽章
             drawFrameSource(ctx, from)
+          } else if (effect === 'spin') {
+            // 逐帧旋转：徽章硬切轮换，每枚比上一枚累计多转一个步进角
+            const count = Math.floor((now - start) / HOLD_MS)
+            drawFrameSourceRotated(ctx, from, computeSpinRotationRad(count, spinStepDeg))
           } else {
             // 复用编码侧的逐帧绘制，保证预览与最终 GIF 的视觉逻辑一致
             renderTransition(ctx, from, to, progress, effect, PREVIEW_SIZE)
@@ -117,7 +127,7 @@ export function EffectPreview({ badges, effect, iconSource, className }: EffectP
       first.removeEventListener('load', tryBegin)
       second.removeEventListener('load', tryBegin)
     }
-  }, [badges, effect])
+  }, [badges, effect, spinStepDeg])
 
   return (
     <div

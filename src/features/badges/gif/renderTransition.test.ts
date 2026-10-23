@@ -124,6 +124,10 @@ describe('renderTransition 各效果绘制逻辑', () => {
     expect(drawnImages(render('slide', 0.5))).toEqual(['from', 'to'])
   })
 
+  it('逐帧旋转没有过渡帧语义，被采样时退化为直接切换绘制下一枚', () => {
+    expect(drawnImages(render('spin', 0.5))).toEqual(['to'])
+  })
+
   it('上下滑动：当前徽章向上移出，下一枚从下方进入', () => {
     const draws = render('slideUp', 0.5).calls.filter((call) => call.fn === 'drawImage')
     expect(draws[0]?.args[2]).toBe(LAYOUT.y - 0.5 * SIZE)

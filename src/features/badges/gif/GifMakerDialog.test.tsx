@@ -39,7 +39,7 @@ function deferred<T>() {
 
 interface MakeGifCall {
   badges: BadgeRecord[]
-  options: { delayMs: number; effect: string; iconSource: string }
+  options: { delayMs: number; effect: string; iconSource: string; spinStepDeg: number }
   onProgress: (progress: unknown) => void
   signal?: AbortSignal
   resolve: (blob: Blob) => void
@@ -202,6 +202,70 @@ describe('GifMakerDialog 默认配置与摘要', () => {
       'aria-pressed',
       'true',
     )
+  })
+})
+
+describe('GifMakerDialog 逐帧旋转', () => {
+  it('选择逐帧旋转后显示角度输入，默认 20°，摘要附带步进角并以配置生成', async () => {
+    const user = userEvent.setup()
+    const calls = setupMakeGif()
+    renderDialog()
+
+    expect(screen.queryByLabelText('逐帧旋转步进角度')).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: '逐帧旋转' }))
+    const input = screen.getByLabelText('逐帧旋转步进角度')
+    expect(input).toHaveValue(20)
+    expect(screen.getByText(/逐帧旋转 \+20°/)).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: '生成 GIF' }))
+    expect(calls[0]?.options.effect).toBe('spin')
+    expect(calls[0]?.options.spinStepDeg).toBe(20)
+  })
+
+  it('支持负角度：修改步进角后按新角度生成并记忆偏好', async () => {
+    const user = userEvent.setup()
+    const calls = setupMakeGif()
+    renderDialog()
+    await user.click(screen.getByRole('button', { name: '逐帧旋转' }))
+
+    const input = screen.getByLabelText('逐帧旋转步进角度')
+    await user.clear(input)
+    await user.type(input, '-45')
+    await user.tab()
+    expect(input).toHaveValue(-45)
+    expect(screen.getByText(/逐帧旋转 -45°/)).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: '生成 GIF' }))
+    expect(calls[0]?.options.spinStepDeg).toBe(-45)
+    expect(window.localStorage.getItem('gif-maker:spin-step')).toBe('-45')
+  })
+
+  it('步进角超界时失焦钳位到 ±180', async () => {
+    const user = userEvent.setup()
+    renderDialog()
+    await user.click(screen.getByRole('button', { name: '逐帧旋转' }))
+
+    const input = screen.getByLabelText('逐帧旋转步进角度')
+    await user.clear(input)
+    await user.type(input, '999')
+    await user.tab()
+    expect(input).toHaveValue(180)
+
+    await user.clear(input)
+    await user.type(input, '-999')
+    await user.tab()
+    expect(input).toHaveValue(-180)
+  })
+
+  it('切换到其他效果后隐藏角度输入，生成不携带旋转配置变化', async () => {
+    const user = userEvent.setup()
+    renderDialog()
+    await user.click(screen.getByRole('button', { name: '逐帧旋转' }))
+    expect(screen.getByLabelText('逐帧旋转步进角度')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: '淡入淡出' }))
+    expect(screen.queryByLabelText('逐帧旋转步进角度')).not.toBeInTheDocument()
+    expect(screen.queryByText(/逐帧旋转 [+-]/)).not.toBeInTheDocument()
   })
 })
 
@@ -368,7 +432,12 @@ describe('GifMakerDialog 成功与失败', () => {
 
     await user.click(screen.getByRole('button', { name: '重试' }))
     expect(makeGifMock).toHaveBeenCalledTimes(2)
-    expect(calls[1]?.options).toEqual({ delayMs: 200, effect: 'cut', iconSource: 'large' })
+    expect(calls[1]?.options).toEqual({
+      delayMs: 200,
+      effect: 'cut',
+      iconSource: 'large',
+      spinStepDeg: 20,
+    })
     expect(screen.getByText(/正在生成/)).toBeInTheDocument()
   })
 

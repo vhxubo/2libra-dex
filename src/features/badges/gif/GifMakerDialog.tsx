@@ -28,18 +28,23 @@ import {
   COLOR_LADDER,
   DEFAULT_DELAY_MS,
   DEFAULT_EFFECT,
+  DEFAULT_SPIN_STEP_DEG,
   DELAY_STEP_MS,
   EFFECT_GROUPS,
   EFFECT_LABELS,
   GifCancelledError,
   ICON_SOURCE_LABELS,
   MAX_DELAY_MS,
+  MAX_SPIN_STEP_DEG,
   MIN_DELAY_MS,
+  MIN_SPIN_STEP_DEG,
+  SPIN_STEP_DEG_INPUT_STEP,
   formatSeconds,
   iconUrlFor,
   isGifEffect,
   makeGif,
   normalizeDelayMs,
+  normalizeSpinStepDeg,
   validateFrameCount,
   type GifEffect,
   type GifIconSource,
@@ -47,6 +52,7 @@ import {
 } from './gifmaker'
 
 const EFFECT_STORAGE_KEY = 'gif-maker:effect'
+const SPIN_STEP_STORAGE_KEY = 'gif-maker:spin-step'
 
 function readStoredEffect(): GifEffect {
   try {
@@ -65,6 +71,32 @@ function writeStoredEffect(effect: GifEffect): void {
   }
 }
 
+function readStoredSpinStepDeg(): number {
+  try {
+    const raw = window.localStorage.getItem(SPIN_STEP_STORAGE_KEY)
+    if (raw === null || raw.trim() === '') return DEFAULT_SPIN_STEP_DEG
+    const value = Number(raw)
+    return Number.isFinite(value) ? normalizeSpinStepDeg(value) : DEFAULT_SPIN_STEP_DEG
+  } catch {
+    return DEFAULT_SPIN_STEP_DEG
+  }
+}
+
+function writeStoredSpinStepDeg(step: number): void {
+  try {
+    window.localStorage.setItem(SPIN_STEP_STORAGE_KEY, String(normalizeSpinStepDeg(step)))
+  } catch {
+    // 同上：仅影响记忆偏好
+  }
+}
+
+/** 效果在摘要中的展示名：逐帧旋转附带步进角（如「逐帧旋转 +20°」）。 */
+function effectSummaryLabel(effect: GifEffect, spinStepDeg: number): string {
+  if (effect !== 'spin') return EFFECT_LABELS[effect]
+  const step = normalizeSpinStepDeg(spinStepDeg)
+  return `${EFFECT_LABELS.spin} ${step >= 0 ? '+' : ''}${step}°`
+}
+
 export interface GifMakerDialogProps {
   /** 已选徽章，按页面选择顺序传入。 */
   badges: BadgeRecord[]
@@ -81,6 +113,7 @@ interface ConfigSnapshot {
   delayMs: number
   effect: GifEffect
   iconSource: GifIconSource
+  spinStepDeg: number
 }
 
 type GenerateState =
@@ -106,6 +139,8 @@ export function GifMakerDialog({
   // 间隔以文本态保存，容忍输入过程中的临时值（空串、未敲完的数字），失焦时钳位回写
   const [delayInput, setDelayInput] = useState<string>(String(DEFAULT_DELAY_MS))
   const [effect, setEffect] = useState<GifEffect>(readStoredEffect)
+  // 逐帧旋转的步进角同样以文本态保存，仅在选择该效果时展示
+  const [spinStepInput, setSpinStepInput] = useState<string>(String(readStoredSpinStepDeg()))
   const [iconSource, setIconSource] = useState<GifIconSource>(defaultIconSource)
   const [generation, setGeneration] = useState<GenerateState>({ phase: 'idle' })
   /** 成功后修改配置时保留旧预览，仅标记过期，避免误下载旧结果。 */
@@ -135,6 +170,7 @@ export function GifMakerDialog({
   const generating = generation.phase === 'generating'
   const frameError = validateFrameCount(orderedBadges.length)
   const normalizedDelay = normalizeDelayMs(Number(delayInput))
+  const normalizedSpinStep = normalizeSpinStepDeg(Number(spinStepInput))
 
   // 卸载时取消在途任务并释放预览 URL
   useEffect(() => {
@@ -187,6 +223,23 @@ export function GifMakerDialog({
     setDelayInput(String(normalizedDelay))
   }
 
+  // 步进角与间隔同套路：临时编辑不打扰预览，失焦钳位回写并记忆偏好
+  const handleSpinStepChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const next = event.target.value
+    const parsed = Number(next)
+    if (Number.isFinite(parsed)) {
+      if (normalizeSpinStepDeg(parsed) !== normalizedSpinStep) markConfigChanged()
+      writeStoredSpinStepDeg(parsed)
+    }
+    setSpinStepInput(next)
+  }
+
+  const handleSpinStepBlur = () => {
+    setSpinStepInput(String(normalizedSpinStep))
+    // 输入被清空等场景下 change 未写入，失焦时以最终值兜底同步
+    writeStoredSpinStepDeg(normalizedSpinStep)
+  }
+
   const handleGenerate = async () => {
     if (frameError !== null || generating) return
     const snapshot: ConfigSnapshot = {
@@ -194,6 +247,7 @@ export function GifMakerDialog({
       delayMs: normalizedDelay,
       effect,
       iconSource,
+      spinStepDeg: normalizedSpinStep,
     }
     revokeResult()
     setStale(false)
@@ -208,7 +262,7 @@ export function GifMakerDialog({
     try {
       const blob = await makeGif(
         orderedBadges,
-        { delayMs: normalizedDelay, effect, iconSource },
+        { delayMs: normalizedDelay, effect, iconSource, spinStepDeg: normalizedSpinStep },
         (progress) => {
           if (requestRef.current === requestId) {
             setGeneration({ phase: 'generating', progress })
@@ -263,9 +317,10 @@ export function GifMakerDialog({
   }
 
   const canGenerate = frameError === null && !generating
-  const summary = `${orderedBadges.length} 帧 · 每帧 ${formatSeconds(normalizedDelay)} · ${
-    EFFECT_LABELS[effect]
-  } · ${ICON_SOURCE_LABELS[iconSource]} · 总时长约 ${formatSeconds(
+  const summary = `${orderedBadges.length} 帧 · 每帧 ${formatSeconds(normalizedDelay)} · ${effectSummaryLabel(
+    effect,
+    normalizedSpinStep,
+  )} · ${ICON_SOURCE_LABELS[iconSource]} · 总时长约 ${formatSeconds(
     orderedBadges.length * normalizedDelay,
   )}`
 
@@ -396,7 +451,12 @@ export function GifMakerDialog({
           <section aria-label="切换效果">
             <div className="mb-2 flex items-center gap-3">
               <h3 className="text-sm font-medium">切换效果</h3>
-              <EffectPreview badges={orderedBadges} effect={effect} iconSource={iconSource} />
+              <EffectPreview
+                badges={orderedBadges}
+                effect={effect}
+                iconSource={iconSource}
+                spinStepDeg={normalizedSpinStep}
+              />
             </div>
             <div className="flex flex-col gap-1.5">
               {EFFECT_GROUPS.map((group) => (
@@ -434,6 +494,26 @@ export function GifMakerDialog({
                 </div>
               ))}
             </div>
+            {effect === 'spin' && (
+              <div className="mt-2.5 flex flex-wrap items-center gap-2">
+                <Input
+                  type="number"
+                  aria-label="逐帧旋转步进角度"
+                  value={spinStepInput}
+                  min={MIN_SPIN_STEP_DEG}
+                  max={MAX_SPIN_STEP_DEG}
+                  step={SPIN_STEP_DEG_INPUT_STEP}
+                  disabled={generating}
+                  onChange={handleSpinStepChange}
+                  onBlur={handleSpinStepBlur}
+                  className="h-8 w-24 rounded-[6px] tabular-nums"
+                />
+                <span className="text-xs text-muted-foreground">
+                  度/枚（{MIN_SPIN_STEP_DEG}–{MAX_SPIN_STEP_DEG}）：正数逆时针、负数顺时针，默认{' '}
+                  {DEFAULT_SPIN_STEP_DEG}°
+                </span>
+              </div>
+            )}
           </section>
 
           <section aria-label="生成图标">
@@ -528,8 +608,11 @@ export function GifMakerDialog({
                   <span>
                     {generation.snapshot.frameCount} 帧 · 每帧{' '}
                     {formatSeconds(generation.snapshot.delayMs)} ·{' '}
-                    {EFFECT_LABELS[generation.snapshot.effect]} ·{' '}
-                    {ICON_SOURCE_LABELS[generation.snapshot.iconSource]} ·{' '}
+                    {effectSummaryLabel(
+                      generation.snapshot.effect,
+                      generation.snapshot.spinStepDeg,
+                    )}{' '}
+                    · {ICON_SOURCE_LABELS[generation.snapshot.iconSource]} ·{' '}
                     <span className="font-medium tabular-nums text-foreground">
                       {formatBytes(generation.size)}
                     </span>
