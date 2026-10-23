@@ -274,7 +274,7 @@ describe('makeGif 取消', () => {
 })
 
 describe('效果与图标来源常量', () => {
-  it('提供 14 种效果，默认仍为直接切换', () => {
+  it('提供 13 种效果，默认仍为直接切换', () => {
     expect([...GIF_EFFECTS]).toEqual([
       'cut',
       'fade',
@@ -289,7 +289,6 @@ describe('效果与图标来源常量', () => {
       'bounce',
       'rotate',
       'shine',
-      'ripple',
     ])
     expect(DEFAULT_EFFECT).toBe('cut')
   })

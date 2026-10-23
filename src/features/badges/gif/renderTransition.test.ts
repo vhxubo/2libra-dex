@@ -187,16 +187,6 @@ describe('renderTransition 各效果绘制逻辑', () => {
     expect(rects[1]?.args[0]).toBeCloseTo(sweep)
   })
 
-  it('波纹扩散：揭示圆之外还绘制渐淡的水纹环', () => {
-    const calls = render('ripple', 0.5).calls
-    const arcs = calls.filter((call) => call.fn === 'arc')
-    const strokes = calls.filter((call) => call.fn === 'stroke')
-    // 1 个揭示圆 + 至少 2 圈水纹
-    expect(arcs.length).toBeGreaterThanOrEqual(3)
-    expect(strokes.length).toBe(arcs.length - 1)
-    expect(render('ripple', 0).calls.some((call) => call.fn === 'stroke')).toBe(false)
-  })
-
   it('模糊聚焦：端点直接清晰绘制，中点两枚都经过缩放模糊中转', () => {
     expect(render('blur', 0).calls.filter((call) => call.fn === 'drawImage')).toHaveLength(1)
     expect(render('blur', 1).calls.filter((call) => call.fn === 'drawImage')).toHaveLength(1)

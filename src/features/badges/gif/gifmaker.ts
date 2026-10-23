@@ -44,7 +44,6 @@ export const GIF_EFFECTS = [
   'bounce',
   'rotate',
   'shine',
-  'ripple',
 ] as const
 export type GifEffect = (typeof GIF_EFFECTS)[number]
 
@@ -62,7 +61,6 @@ export const EFFECT_LABELS: Record<GifEffect, string> = {
   bounce: '弹跳登场',
   rotate: '旋转切换',
   shine: '闪光揭示',
-  ripple: '波纹扩散',
 }
 
 /** 设置面板的效果分组：效果较多时按「基础、方向、趣味」分三行展示。 */
@@ -74,7 +72,7 @@ export interface EffectGroup {
 export const EFFECT_GROUPS: readonly EffectGroup[] = [
   { label: '基础', effects: ['cut', 'fade', 'zoom', 'blur'] },
   { label: '方向', effects: ['slide', 'slideUp', 'circle', 'flip'] },
-  { label: '趣味', effects: ['pixel', 'glitch', 'bounce', 'rotate', 'shine', 'ripple'] },
+  { label: '趣味', effects: ['pixel', 'glitch', 'bounce', 'rotate', 'shine'] },
 ]
 
 /** 首版默认直接切换，避免突然增加编码耗时。 */
@@ -633,31 +631,6 @@ export function renderTransition(
       glow.addColorStop(1, 'rgba(255, 244, 214, 0)')
       ctx.fillStyle = glow
       ctx.fillRect(sweep - band, 0, band, size)
-      break
-    }
-    case 'ripple': {
-      // 中心波纹向外扩散，波纹之内露出下一枚，波前拖着渐淡的水纹环
-      drawFrameSource(ctx, from)
-      const maxRadius = size / Math.SQRT2
-      const radius = t * maxRadius
-      if (radius > 0) {
-        ctx.save()
-        ctx.beginPath()
-        ctx.arc(size / 2, size / 2, radius, 0, Math.PI * 2)
-        ctx.clip()
-        drawFrameSource(ctx, to)
-        ctx.restore()
-      }
-      const gap = size / 9
-      for (let i = 0; i < 3; i++) {
-        const ringRadius = radius - i * gap
-        if (ringRadius <= 0) break
-        ctx.strokeStyle = `rgba(96, 145, 255, ${0.5 * (1 - i / 3) * (1 - t)})`
-        ctx.lineWidth = Math.max(1.5, size / 128)
-        ctx.beginPath()
-        ctx.arc(size / 2, size / 2, ringRadius, 0, Math.PI * 2)
-        ctx.stroke()
-      }
       break
     }
   }
