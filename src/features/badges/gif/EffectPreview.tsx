@@ -1,22 +1,27 @@
 import { useEffect, useRef } from 'react'
 import { cn } from '@/lib/utils'
 import {
-  FRAME_BACKGROUND,
+  DEFAULT_GIF_BACKGROUND,
   computeFrameLayout,
   computeSpinRotationRad,
   drawFrameSource,
   drawFrameSourceRotated,
+  isTransparentGifBackground,
+  normalizeGifBackground,
   renderTransition,
   type FrameSource,
   type GifFrameInput,
   type GifEffect,
 } from './gifmaker'
+import { TRANSPARENT_BACKDROP_STYLE } from './transparentBackdrop'
 
 interface EffectPreviewProps {
   badges: GifFrameInput[]
   effect: GifEffect
   /** 逐帧旋转的步进角（度），仅 effect === 'spin' 时生效。 */
   spinStepDeg: number
+  /** 背景设置，与生成配置保持一致；默认透明。 */
+  background?: string
   className?: string
 }
 
@@ -26,7 +31,7 @@ const TRANSITION_MS = 480
 const PREVIEW_SIZE = 128
 
 /** 切换效果的小型实时预览：在前两枚已选徽章间按所选效果循环切换。 */
-export function EffectPreview({ badges, effect, spinStepDeg, className }: EffectPreviewProps) {
+export function EffectPreview({ badges, effect, spinStepDeg, background = DEFAULT_GIF_BACKGROUND, className }: EffectPreviewProps) {
   const firstRef = useRef<HTMLImageElement>(null)
   const secondRef = useRef<HTMLImageElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -77,8 +82,12 @@ export function EffectPreview({ badges, effect, spinStepDeg, className }: Effect
       const from = sourceOf(fromImage)
       const to = sourceOf(toImage)
       if (ctx !== null) {
-        ctx.fillStyle = FRAME_BACKGROUND
-        ctx.fillRect(0, 0, PREVIEW_SIZE, PREVIEW_SIZE)
+        if (isTransparentGifBackground(background)) {
+          ctx.clearRect(0, 0, PREVIEW_SIZE, PREVIEW_SIZE)
+        } else {
+          ctx.fillStyle = normalizeGifBackground(background)
+          ctx.fillRect(0, 0, PREVIEW_SIZE, PREVIEW_SIZE)
+        }
         if (from !== null && to !== null) {
           if (effect === 'cut') {
             // 直接切换没有过渡帧：停留阶段始终显示当前徽章
@@ -124,15 +133,18 @@ export function EffectPreview({ badges, effect, spinStepDeg, className }: Effect
       first.removeEventListener('load', tryBegin)
       second.removeEventListener('load', tryBegin)
     }
-  }, [badges, effect, spinStepDeg])
+  }, [badges, effect, spinStepDeg, background])
 
+  const transparent = isTransparentGifBackground(background)
   return (
     <div
       aria-hidden
       className={cn(
-        'relative size-16 shrink-0 overflow-hidden rounded-md border border-border bg-white',
+        'relative size-16 shrink-0 overflow-hidden rounded-md border border-border',
+        transparent ? undefined : 'bg-white',
         className,
       )}
+      style={transparent ? TRANSPARENT_BACKDROP_STYLE : undefined}
     >
       <canvas
         ref={canvasRef}

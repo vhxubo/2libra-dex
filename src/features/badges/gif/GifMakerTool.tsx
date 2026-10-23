@@ -29,14 +29,17 @@ import { cn } from '@/lib/utils'
 import { BadgeImage } from '../components/BadgeImage'
 import type { BadgeRecord } from '../types'
 import { EffectPreview } from './EffectPreview'
+import { TRANSPARENT_BACKDROP_STYLE } from './transparentBackdrop'
 import {
   COLOR_LADDER,
   DEFAULT_DELAY_MS,
   DEFAULT_EFFECT,
+  DEFAULT_GIF_BACKGROUND,
   DEFAULT_GIF_SIZE,
   DELAY_STEP_MS,
   EFFECT_GROUPS,
   EFFECT_LABELS,
+  GIF_BACKGROUND_PRESETS,
   GIF_SIZE_CAPS,
   GIF_SIZE_INPUT_STEP,
   GifCancelledError,
@@ -53,11 +56,14 @@ import {
   computeDefaultSpinStepDeg,
   formatSeconds,
   formatSizeLimit,
+  gifBackgroundLabel,
   iconUrlFor,
   isGifEffect,
+  isTransparentGifBackground,
   loadImageUrl,
   makeGif,
   normalizeDelayMs,
+  normalizeGifBackground,
   normalizeGifSize,
   normalizeSpinStepDeg,
   validateFrameCount,
@@ -68,6 +74,7 @@ import {
 } from './gifmaker'
 
 const EFFECT_STORAGE_KEY = 'gif-maker:effect'
+const BACKGROUND_STORAGE_KEY = 'gif-maker:background'
 
 function readStoredEffect(): GifEffect {
   try {
@@ -81,6 +88,22 @@ function readStoredEffect(): GifEffect {
 function writeStoredEffect(effect: GifEffect): void {
   try {
     window.localStorage.setItem(EFFECT_STORAGE_KEY, effect)
+  } catch {
+    // 隐私模式等场景写入失败时静默降级，仅影响记忆偏好
+  }
+}
+
+function readStoredBackground(): string {
+  try {
+    return normalizeGifBackground(window.localStorage.getItem(BACKGROUND_STORAGE_KEY))
+  } catch {
+    return DEFAULT_GIF_BACKGROUND
+  }
+}
+
+function writeStoredBackground(background: string): void {
+  try {
+    window.localStorage.setItem(BACKGROUND_STORAGE_KEY, background)
   } catch {
     // 隐私模式等场景写入失败时静默降级，仅影响记忆偏好
   }
@@ -132,6 +155,7 @@ interface ConfigSnapshot {
   spinStepDeg: number
   size: number
   sizeLimitBytes: number
+  background: string
 }
 
 type GenerateState =
@@ -168,6 +192,10 @@ export function GifMakerTool({
   // 间隔以文本态保存，容忍输入过程中的临时值（空串、未敲完的数字），失焦时钳位回写
   const [delayInput, setDelayInput] = useState<string>(String(DEFAULT_DELAY_MS))
   const [effect, setEffect] = useState<GifEffect>(readStoredEffect)
+  // 背景默认透明：SVG/PNG 徽章保留自身透明像素，同样持久化记忆偏好
+  const [background, setBackground] = useState<string>(readStoredBackground)
+  /** 自定义背景色的当前取值，仅驱动取色器色块展示。 */
+  const [customBackgroundHex, setCustomBackgroundHex] = useState('#ffffff')
   // 输出边长同样以文本态保存，失焦钳位回写；体积上限只在预设档位中选择
   const [sizeInput, setSizeInput] = useState<string>(String(DEFAULT_GIF_SIZE))
   const [sizeLimitBytes, setSizeLimitBytes] = useState<number>(MAX_GIF_BYTES)
@@ -387,6 +415,14 @@ export function GifMakerTool({
     setSpinStepInput(String(normalizedSpinStep))
   }
 
+  // 背景预设与自定义取色共用：变更即持久化并使旧结果过期
+  const selectBackground = (next: string) => {
+    if (normalizeGifBackground(next) === normalizeGifBackground(background)) return
+    markConfigChanged()
+    setBackground(next)
+    writeStoredBackground(next)
+  }
+
   const handleGenerate = async () => {
     if (frameError !== null || generating) return
     const snapshot: ConfigSnapshot = {
@@ -398,6 +434,7 @@ export function GifMakerTool({
       spinStepDeg: normalizedSpinStep,
       size: normalizedSize,
       sizeLimitBytes,
+      background,
     }
     revokeResult()
     setStale(false)
@@ -418,6 +455,7 @@ export function GifMakerTool({
           spinStepDeg: normalizedSpinStep,
           size: normalizedSize,
           sizeLimitBytes,
+          background,
         },
         (progress) => {
           if (requestRef.current === requestId) {
@@ -460,7 +498,7 @@ export function GifMakerTool({
     normalizedSpinStep,
   )} · ${ICON_SOURCE_LABELS[iconSource]} · 总时长约 ${formatSeconds(
     orderedBadges.length * normalizedDelay,
-  )} · ${normalizedSize}×${normalizedSize}px · 体积 ≤ ${formatSizeLimit(sizeLimitBytes)}`
+  )} · ${normalizedSize}×${normalizedSize}px · 体积 ≤ ${formatSizeLimit(sizeLimitBytes)} · 背景 ${gifBackgroundLabel(background)}`
 
   const generateButtonLabel =
     generation.phase === 'error'
@@ -804,6 +842,62 @@ export function GifMakerTool({
             </div>
           </section>
 
+          <section aria-label="背景">
+            <h3 className="mb-2 text-sm font-medium">背景</h3>
+            <div className="flex flex-col gap-2.5">
+              <div className="flex flex-wrap items-center gap-2">
+                <div
+                  role="group"
+                  aria-label="选择背景"
+                  className="inline-flex flex-wrap items-center rounded-md border border-input bg-card p-0.5"
+                >
+                  {GIF_BACKGROUND_PRESETS.map((preset) => (
+                    <button
+                      key={preset.value}
+                      type="button"
+                      aria-pressed={background === preset.value}
+                      disabled={generating}
+                      onClick={() => selectBackground(preset.value)}
+                      className={cn(
+                        'inline-flex h-8 items-center rounded-[6px] px-2.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50',
+                        background === preset.value
+                          ? 'bg-primary text-primary-foreground'
+                          : 'text-muted-foreground hover:text-foreground',
+                      )}
+                    >
+                      {preset.label}
+                    </button>
+                  ))}
+                </div>
+                <label className="inline-flex h-8 items-center gap-2 rounded-md border border-input bg-card px-2.5 text-xs">
+                  自定义
+                  <input
+                    type="color"
+                    aria-label="自定义背景色"
+                    value={customBackgroundHex}
+                    disabled={generating}
+                    onChange={(event) => {
+                      setCustomBackgroundHex(event.target.value)
+                      selectBackground(event.target.value)
+                    }}
+                    className="size-5 cursor-pointer border-none bg-transparent p-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50"
+                  />
+                </label>
+              </div>
+              {isTransparentGifBackground(background) ? (
+                <p className="flex items-start gap-1.5 text-xs text-muted-foreground">
+                  <Info className="mt-0.5 size-3.5 shrink-0" aria-hidden />
+                  透明背景保留 SVG/PNG 图片自身的透明像素；GIF 仅支持全透明或全不透明，边缘抗锯齿会略有损失。
+                </p>
+              ) : (
+                <p className="flex items-start gap-1.5 text-xs text-muted-foreground">
+                  <Info className="mt-0.5 size-3.5 shrink-0" aria-hidden />
+                  所有帧统一铺所选底色，透明图片的透明区域也会被填充。
+                </p>
+              )}
+            </div>
+          </section>
+
           <section aria-label="切换效果">
             <div className="mb-2 flex items-center gap-3">
               <h3 className="text-sm font-medium">切换效果</h3>
@@ -811,6 +905,7 @@ export function GifMakerTool({
                 badges={orderedBadges}
                 effect={effect}
                 spinStepDeg={normalizedSpinStep}
+                background={background}
               />
             </div>
             <div className="flex flex-col gap-1.5">
@@ -919,7 +1014,15 @@ export function GifMakerTool({
                   alt="徽章轮播 GIF 预览"
                   width={generation.snapshot.size}
                   height={generation.snapshot.size}
-                  className="size-44 rounded-lg bg-white shadow-sm"
+                  className={cn(
+                    'size-44 rounded-lg shadow-sm',
+                    isTransparentGifBackground(generation.snapshot.background) ? undefined : 'bg-white',
+                  )}
+                  style={
+                    isTransparentGifBackground(generation.snapshot.background)
+                      ? TRANSPARENT_BACKDROP_STYLE
+                      : undefined
+                  }
                 />
                 <div className="flex flex-wrap items-center justify-center gap-2 text-sm text-muted-foreground">
                   <span>
@@ -930,7 +1033,8 @@ export function GifMakerTool({
                       generation.snapshot.spinStepDeg,
                     )}{' '}
                     · {ICON_SOURCE_LABELS[generation.snapshot.iconSource]} ·{' '}
-                    {generation.snapshot.size}×{generation.snapshot.size}px ·{' '}
+                    {generation.snapshot.size}×{generation.snapshot.size}px · 背景{' '}
+                    {gifBackgroundLabel(generation.snapshot.background)} ·{' '}
                     <span className="font-medium tabular-nums text-foreground">
                       {formatBytes(generation.size)}
                     </span>

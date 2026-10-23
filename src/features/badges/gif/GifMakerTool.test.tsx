@@ -51,6 +51,7 @@ interface MakeGifCall {
     spinStepDeg: number
     size: number
     sizeLimitBytes: number
+    background: string
   }
   onProgress: (progress: unknown) => void
   signal?: AbortSignal
@@ -315,6 +316,65 @@ describe('GifMakerTool 输出尺寸与体积上限', () => {
   })
 })
 
+describe('GifMakerTool 背景', () => {
+  it('默认透明背景：摘要展示背景档位，生成以透明配置发起', async () => {
+    const user = userEvent.setup()
+    const calls = setupMakeGif()
+    renderTool()
+
+    expect(screen.getByRole('button', { name: '透明' })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByText(/生成在本地完成/).textContent).toContain('背景 透明')
+    expect(screen.getByText(/保留 SVG\/PNG 图片自身的透明像素/)).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: '生成 GIF' }))
+    expect(calls[0]?.options.background).toBe('transparent')
+  })
+
+  it('切换白色背景后按底色生成并持久化，提示语切换为铺底色说明', async () => {
+    const user = userEvent.setup()
+    const calls = setupMakeGif()
+    renderTool()
+
+    await user.click(screen.getByRole('button', { name: '白色' }))
+    expect(screen.getByRole('button', { name: '白色' })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('button', { name: '透明' })).toHaveAttribute('aria-pressed', 'false')
+    expect(screen.getByText(/生成在本地完成/).textContent).toContain('背景 白色')
+    expect(screen.getByText(/统一铺所选底色/)).toBeInTheDocument()
+    expect(window.localStorage.getItem('gif-maker:background')).toBe('#ffffff')
+
+    await user.click(screen.getByRole('button', { name: '生成 GIF' }))
+    expect(calls[0]?.options.background).toBe('#ffffff')
+  })
+
+  it('自定义取色立即生效：预设不再选中，生成使用所选色值', async () => {
+    const user = userEvent.setup()
+    const calls = setupMakeGif()
+    renderTool()
+
+    fireEvent.change(screen.getByLabelText('自定义背景色'), { target: { value: '#1a2b3c' } })
+    expect(screen.getByRole('button', { name: '透明' })).toHaveAttribute('aria-pressed', 'false')
+    expect(screen.getByText(/生成在本地完成/).textContent).toContain('背景 #1a2b3c')
+
+    await user.click(screen.getByRole('button', { name: '生成 GIF' }))
+    expect(calls[0]?.options.background).toBe('#1a2b3c')
+  })
+
+  it('背景选择会被记住，非法存储值回落透明', async () => {
+    const user = userEvent.setup()
+    const first = renderTool()
+    await user.click(screen.getByRole('button', { name: '黑色' }))
+    first.unmount()
+
+    const second = renderTool()
+    expect(screen.getByRole('button', { name: '黑色' })).toHaveAttribute('aria-pressed', 'true')
+    second.unmount()
+
+    window.localStorage.setItem('gif-maker:background', 'not-a-color')
+    renderTool()
+    expect(screen.getByRole('button', { name: '透明' })).toHaveAttribute('aria-pressed', 'true')
+  })
+})
+
 describe('GifMakerTool 逐帧旋转', () => {
   it('选择逐帧旋转后显示角度输入，默认取 360/帧数，摘要附带步进角并以配置生成', async () => {
     const user = userEvent.setup()
@@ -541,6 +601,7 @@ describe('GifMakerTool 成功与失败', () => {
       spinStepDeg: 120,
       size: 512,
       sizeLimitBytes: 10 * 1024 * 1024,
+      background: 'transparent',
     })
     expect(screen.getByText(/正在生成/)).toBeInTheDocument()
   })

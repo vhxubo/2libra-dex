@@ -26,8 +26,42 @@ export const GIF_SIZE_CAPS: readonly GifSizeCap[] = [
 ]
 /** 徽章内容在画布中的最大占比，四周留白避免贴边。 */
 const CONTENT_SCALE = 0.875
-/** 帧背景色：GIF 不支持透明与渐变淡出，统一铺白底。 */
-export const FRAME_BACKGROUND = '#ffffff'
+
+// ===== 背景设置 =====
+
+/** 背景的透明档位值：GIF 支持 1 位透明，SVG/PNG 的透明区域可直接保留。 */
+export const TRANSPARENT_BACKGROUND = 'transparent'
+/** 默认透明背景：不铺底色，保留图片自身的透明像素。 */
+export const DEFAULT_GIF_BACKGROUND = TRANSPARENT_BACKGROUND
+/** 常用背景预设档位。 */
+export interface GifBackgroundPreset {
+  label: string
+  value: string
+}
+export const GIF_BACKGROUND_PRESETS: readonly GifBackgroundPreset[] = [
+  { label: '透明', value: TRANSPARENT_BACKGROUND },
+  { label: '白色', value: '#ffffff' },
+  { label: '黑色', value: '#000000' },
+]
+/** 背景只接受透明或 #rgb/#rrggbb 色值（预设与取色器都落在该范围内）。 */
+const HEX_COLOR_PATTERN = /^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/i
+
+/** 规范化背景：透明与合法色值原样保留（色值转小写），非法值回落透明。 */
+export function normalizeGifBackground(value: unknown): string {
+  if (value === TRANSPARENT_BACKGROUND) return TRANSPARENT_BACKGROUND
+  if (typeof value === 'string' && HEX_COLOR_PATTERN.test(value)) return value.toLowerCase()
+  return DEFAULT_GIF_BACKGROUND
+}
+
+export function isTransparentGifBackground(background: string): boolean {
+  return normalizeGifBackground(background) === TRANSPARENT_BACKGROUND
+}
+
+/** 背景的展示名：预设档位给中文名，自定义颜色展示原始色值。 */
+export function gifBackgroundLabel(background: string): string {
+  const normalized = normalizeGifBackground(background)
+  return GIF_BACKGROUND_PRESETS.find((preset) => preset.value === normalized)?.label ?? normalized
+}
 
 // ===== 帧间隔 =====
 
@@ -149,6 +183,8 @@ export interface GifMakerOptions {
   size: number
   /** 体积上限（字节），超限后沿色阶降级重编码；钳位到硬上限以内。 */
   sizeLimitBytes: number
+  /** 背景：'transparent' 保留透明像素，否则为 #rgb/#rrggbb 底色；编码前经 normalizeGifBackground 规范化。 */
+  background: string
 }
 
 /** 通用 GIF 帧输入，支持徽章来源或用户提供的图片 URL。 */
@@ -556,7 +592,7 @@ function easeOutBack(t: number): number {
   return 1 + c3 * (t - 1) ** 3 + c1 * (t - 1) ** 2
 }
 
-/** 把 from → to 在 progress（0..1）处的中间帧画到已清白底的 ctx 上。 */
+/** 把 from → to 在 progress（0..1）处的中间帧画到已清背景的 ctx 上。 */
 export function renderTransition(
   ctx: CanvasRenderingContext2D,
   from: FrameSource,
@@ -773,6 +809,22 @@ function yieldToUi(): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, 0))
 }
 
+/** GIF 仅 1 位透明：alpha ≥ 阈值视为不透明，其余像素映射到透明索引。 */
+const OPAQUE_ALPHA_THRESHOLD = 128
+
+/** 抽取不透明像素的 RGBA 数据写入复用缓冲区，返回实际数据的子视图。 */
+function collectOpaquePixels(data: Uint8ClampedArray, buffer: Uint8Array): Uint8Array {
+  let length = 0
+  for (let p = 0; p < data.length; p += 4) {
+    if (data[p + 3] < OPAQUE_ALPHA_THRESHOLD) continue
+    buffer[length++] = data[p]
+    buffer[length++] = data[p + 1]
+    buffer[length++] = data[p + 2]
+    buffer[length++] = data[p + 3]
+  }
+  return buffer.subarray(0, length)
+}
+
 async function encodeGif(
   specs: FrameSpec[],
   sources: FrameSource[],
@@ -781,15 +833,22 @@ async function encodeGif(
   signal?: AbortSignal,
 ): Promise<Blob> {
   const size = normalizeGifSize(options.size)
+  const background = normalizeGifBackground(options.background)
+  const transparent = background === TRANSPARENT_BACKGROUND
   const gif = GIFEncoder()
   const ctx = createCanvasContext(size)
+  // 透明模式只量化不透明像素：缓冲区跨帧复用，避免逐帧分配
+  const opaqueBuffer = transparent ? new Uint8Array(size * size * 4) : null
   const total = sources.length
   let done = 0
   for (const [index, spec] of specs.entries()) {
     throwIfAborted(signal)
     const from = sources[spec.badgeIndex]
-    ctx.fillStyle = FRAME_BACKGROUND
-    ctx.fillRect(0, 0, size, size)
+    if (transparent) ctx.clearRect(0, 0, size, size)
+    else {
+      ctx.fillStyle = background
+      ctx.fillRect(0, 0, size, size)
+    }
     if (spec.kind === 'hold') {
       if (options.effect === 'spin') {
         // 每枚徽章按出场顺序累计旋转一个步进角，徽章间硬切
@@ -806,11 +865,31 @@ async function encodeGif(
       renderTransition(ctx, from, to, spec.progress, options.effect, size)
     }
     const frame = ctx.getImageData(0, 0, size, size)
-    const palette = quantize(frame.data, options.maxColors)
-    const indexed = applyPalette(frame.data, palette)
+    let palette: number[][]
+    let indexed: Uint8Array
+    // 透明模式在调色板末位保留透明索引，透明像素改指向它
+    let transparentIndex: number | undefined
+    if (opaqueBuffer === null) {
+      palette = quantize(frame.data, options.maxColors)
+      indexed = applyPalette(frame.data, palette)
+    } else {
+      // 量化时少用一个色数给透明槽让位；空白帧兜底单色避免量化器收到空输入
+      const opaque = collectOpaquePixels(frame.data, opaqueBuffer)
+      palette = opaque.length > 0 ? quantize(opaque, options.maxColors - 1) : [[255, 255, 255]]
+      indexed = applyPalette(frame.data, palette)
+      transparentIndex = palette.length
+      palette.push([0, 0, 0])
+      for (let p = 0; p < indexed.length; p++) {
+        if (frame.data[p * 4 + 3] < OPAQUE_ALPHA_THRESHOLD) indexed[p] = transparentIndex
+      }
+    }
     gif.writeFrame(indexed, size, size, {
       palette,
       delay: spec.delayMs,
+      transparent: transparentIndex !== undefined,
+      transparentIndex,
+      // 透明模式每帧先恢复透明底，避免上一帧内容从透明区域透出
+      dispose: transparentIndex !== undefined ? 2 : -1,
     })
     // 一枚徽章的停留帧 + 过渡帧全部写完才算完成一帧
     const next = specs[index + 1]

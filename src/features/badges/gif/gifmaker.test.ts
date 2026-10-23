@@ -4,9 +4,11 @@ import {
   COLOR_LADDER,
   DEFAULT_DELAY_MS,
   DEFAULT_EFFECT,
+  DEFAULT_GIF_BACKGROUND,
   DEFAULT_GIF_SIZE,
   DEFAULT_SPIN_STEP_DEG,
   DELAY_STEP_MS,
+  GIF_BACKGROUND_PRESETS,
   GIF_SIZE_CAPS,
   GifCancelledError,
   MAX_DELAY_MS,
@@ -17,6 +19,7 @@ import {
   MIN_GIF_SIZE,
   MIN_FRAME_COUNT,
   MIN_SPIN_STEP_DEG,
+  TRANSPARENT_BACKGROUND,
   buildFramePlan,
   computeDefaultSpinStepDeg,
   computeFrameLayout,
@@ -27,11 +30,14 @@ import {
   estimateDurationMs,
   formatSeconds,
   formatSizeLimit,
+  gifBackgroundLabel,
+  isTransparentGifBackground,
   EFFECT_GROUPS,
   EFFECT_LABELS,
   GIF_EFFECTS,
   makeGif,
   normalizeDelayMs,
+  normalizeGifBackground,
   normalizeGifSize,
   normalizeSizeLimitBytes,
   normalizeSpinStepDeg,
@@ -260,6 +266,7 @@ const defaultOptions = {
   spinStepDeg: DEFAULT_SPIN_STEP_DEG,
   size: DEFAULT_GIF_SIZE,
   sizeLimitBytes: MAX_GIF_BYTES,
+  background: DEFAULT_GIF_BACKGROUND,
 } as const
 
 describe('输出尺寸与体积上限', () => {
@@ -308,6 +315,40 @@ describe('输出尺寸与体积上限', () => {
 
   it('色阶扩展到 16 色，为小体积上限提供更深的压缩空间', () => {
     expect([...COLOR_LADDER]).toEqual([256, 128, 64, 32, 16])
+  })
+})
+
+describe('背景设置', () => {
+  it('默认透明背景，预设覆盖透明/白色/黑色且取值可被规范化保留', () => {
+    expect(DEFAULT_GIF_BACKGROUND).toBe(TRANSPARENT_BACKGROUND)
+    expect(GIF_BACKGROUND_PRESETS.map((preset) => preset.label)).toEqual(['透明', '白色', '黑色'])
+    for (const preset of GIF_BACKGROUND_PRESETS) {
+      expect(normalizeGifBackground(preset.value)).toBe(preset.value)
+    }
+  })
+
+  it('normalizeGifBackground：接受透明与 #rgb/#rrggbb 色值，非法值回落透明', () => {
+    expect(normalizeGifBackground('transparent')).toBe('transparent')
+    expect(normalizeGifBackground('#FFFFFF')).toBe('#ffffff')
+    expect(normalizeGifBackground('#FfF')).toBe('#fff')
+    expect(normalizeGifBackground('#1a2b3c')).toBe('#1a2b3c')
+    expect(normalizeGifBackground('red')).toBe(TRANSPARENT_BACKGROUND)
+    expect(normalizeGifBackground('#12345')).toBe(TRANSPARENT_BACKGROUND)
+    expect(normalizeGifBackground('#12345g')).toBe(TRANSPARENT_BACKGROUND)
+    expect(normalizeGifBackground('')).toBe(TRANSPARENT_BACKGROUND)
+    expect(normalizeGifBackground(null)).toBe(TRANSPARENT_BACKGROUND)
+    expect(normalizeGifBackground(42)).toBe(TRANSPARENT_BACKGROUND)
+  })
+
+  it('isTransparentGifBackground 与展示名：预设给中文名，自定义展示色值', () => {
+    expect(isTransparentGifBackground('transparent')).toBe(true)
+    expect(isTransparentGifBackground('#ffffff')).toBe(false)
+    expect(gifBackgroundLabel('transparent')).toBe('透明')
+    expect(gifBackgroundLabel('#ffffff')).toBe('白色')
+    expect(gifBackgroundLabel('#000000')).toBe('黑色')
+    expect(gifBackgroundLabel('#1a2b3c')).toBe('#1a2b3c')
+    // 非法值回落透明档位
+    expect(gifBackgroundLabel('oops')).toBe('透明')
   })
 })
 
