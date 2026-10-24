@@ -22,6 +22,9 @@ export const BADGES: BadgeRecord[] = (raw.badges as RawBadge[]).map((badge) => (
 
 export const BADGE_COUNT = BADGES.length
 
+/** 数据更新日期（YYYY-MM-DD），由 extract_badges.py 生成 badges.json 时打点。 */
+export const BADGE_UPDATED_AT: string = raw.meta.updatedAt
+
 export { ATTR_TYPES, BADGE_LEVELS }
 
 /** 数据中实际出现的属性类型，保持出现顺序。 */

@@ -56,8 +56,8 @@ describe('matchesQuery', () => {
 })
 
 describe('filterBadges', () => {
-  it('无条件筛选返回全部 31 条', () => {
-    expect(filterBadges(BADGES, EMPTY_FILTERS)).toHaveLength(31)
+  it('无条件筛选返回全部 32 条', () => {
+    expect(filterBadges(BADGES, EMPTY_FILTERS)).toHaveLength(32)
   })
 
   it('等级多选取交集', () => {

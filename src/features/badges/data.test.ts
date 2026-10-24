@@ -1,11 +1,16 @@
 import { describe, expect, it } from 'vitest'
 import raw from '../../../badges.json'
-import { ATTR_TYPES, BADGES, BADGE_COUNT, BADGE_LEVELS, toBadgeAssets } from './data'
+import { ATTR_TYPES, BADGES, BADGE_COUNT, BADGE_LEVELS, BADGE_UPDATED_AT, toBadgeAssets } from './data'
 
 describe('徽章数据', () => {
-  it('与 badges.json 的 meta 记录一致，共 31 条', () => {
-    expect(BADGE_COUNT).toBe(31)
+  it('与 badges.json 的 meta 记录一致，共 32 条', () => {
+    expect(BADGE_COUNT).toBe(32)
     expect(raw.meta.badgeCount).toBe(BADGES.length)
+  })
+
+  it('数据更新日期为 YYYY-MM-DD 且与导出一致', () => {
+    expect(raw.meta.updatedAt).toMatch(/^\d{4}-\d{2}-\d{2}$/)
+    expect(BADGE_UPDATED_AT).toBe(raw.meta.updatedAt)
   })
 
   it('ID 唯一', () => {

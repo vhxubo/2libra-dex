@@ -1,6 +1,7 @@
 {
   "meta": {
-    "badgeCount": 31
+    "badgeCount": 32,
+    "updatedAt": "2026-10-24"
   },
   "badges": [
     {
@@ -202,6 +203,16 @@
       "condition": "愚人节当天互动获得。",
       "attrType": "佩戴属性",
       "attr": "反转变化！金币的变动有概率正负值反转。"
+    },
+    {
+      "id": "on_time",
+      "name": "按时？",
+      "icon": "https://r2.2libra.com/badge/on_time.svg",
+      "level": "T1",
+      "rate": 2.59,
+      "condition": "限 1024 程序员节当天获取。但这个需求不需要按时，领取时间宽限多两天(≖ᴗ≖)✧",
+      "attrType": "描述",
+      "attr": "什么需求都按时？看看现在都几点了。"
     },
     {
       "id": "20260601",

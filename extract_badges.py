@@ -2,6 +2,7 @@
 """从 top/*.html 徽章卡片中提取通用数据，合并去重后输出 badges.json。"""
 import json
 import re
+from datetime import datetime
 from html import unescape
 from pathlib import Path
 
@@ -84,6 +85,7 @@ def main():
     result = {
         "meta": {
             "badgeCount": len(badge_list),
+            "updatedAt": datetime.now().strftime("%Y-%m-%d"),
         },
         "badges": badge_list,
     }

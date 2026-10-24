@@ -11,6 +11,7 @@ import {
   ATTR_TYPE_COUNTS,
   BADGES,
   BADGE_COUNT,
+  BADGE_UPDATED_AT,
   LEVEL_COUNTS,
 } from './data'
 import { filterBadges, sortBadges } from './query'
@@ -240,6 +241,7 @@ export default function BadgeDexPage() {
         <h1 className="text-xl font-bold tracking-tight sm:text-2xl">徽章图鉴</h1>
         <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1.5 text-sm text-muted-foreground">
           <span>已收录 {BADGE_COUNT} 枚徽章，不构成完整官方图鉴。</span>
+          <span>数据更新于 {BADGE_UPDATED_AT}。</span>
           <Link
             to="/sources"
             className="inline-flex items-center gap-1 whitespace-nowrap rounded-full border border-border bg-muted px-2 py-0.5 text-xs font-medium text-foreground transition-colors hover:border-primary/50 hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"

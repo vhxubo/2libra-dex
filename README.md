@@ -2,7 +2,7 @@
 
 2Libra 徽章图鉴:浏览已采集的徽章数据,支持搜索、筛选、排序、分页与详情分享;「潘多拉事件」页以纯表格展示已采集的事件记录,支持按稀有度与 tier_code 排序;内置数据来源页(`/sources`)与浅色/深色主题切换;支持使用 2libra 账号 OAuth 登录(Cloudflare Worker 代理授权码交换并签发会话)。站点包含徽章图鉴、潘多拉事件与数据来源三个页面。
 
-> 数据说明:徽章数据来自对 2Libra 徽章卡片的公开页面采集(见根目录 `top/*.html` 与 `extract_badges.py`),当前 31 条记录;潘多拉事件数据来自社区收集贴([forum-function/nRdljKG](https://2libra.com/post/forum-function/nRdljKG))与其公开通知接口,当前 29 条采集记录,内容完全重复的仅保留最新一条,页面展示 21 条。本站不宣称是完整官方图鉴,也不推断稀有度名称、获取有效期或当前可获取状态。
+> 数据说明:徽章数据来自对 2Libra 徽章卡片的公开页面采集(见根目录 `top/*.html` 与 `extract_badges.py`),当前 32 条记录;潘多拉事件数据来自社区收集贴([forum-function/nRdljKG](https://2libra.com/post/forum-function/nRdljKG))与其公开通知接口,当前 29 条采集记录,内容完全重复的仅保留最新一条,页面展示 21 条。本站不宣称是完整官方图鉴,也不推断稀有度名称、获取有效期或当前可获取状态。
 
 ## 技术栈
 
@@ -28,7 +28,7 @@
 
 ## 数据更新
 
-`badges.json` 是唯一的数据源,构建时直接导入(`src/features/badges/data.ts`),没有第二份数据。文件结构为 `{ meta: { badgeCount }, badges: [...] }`,`meta.badgeCount` 为采集到的唯一徽章数:
+`badges.json` 是唯一的数据源,构建时直接导入(`src/features/badges/data.ts`),没有第二份数据。文件结构为 `{ meta: { badgeCount, updatedAt }, badges: [...] }`,`meta.badgeCount` 为采集到的唯一徽章数,`meta.updatedAt` 为脚本生成日期(YYYY-MM-DD),图鉴页头部展示为"数据更新于":
 
 1. 将新的徽章卡片页面快照存入 `top/*.html`;
 2. 运行 `python3 extract_badges.py`,脚本会解析、跨用户合并去重、按"等级 + 获得率 + ID"排序并覆盖写回根目录 `badges.json`;
