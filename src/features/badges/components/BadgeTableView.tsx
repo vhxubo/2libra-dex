@@ -68,6 +68,9 @@ function ClampedTextCell({ text }: { text: string }) {
 }
 
 export function BadgeTableView({ items, sort, onSortChange, onOpen, earnedIds }: BadgeTableViewProps) {
+  // TanStack Table 的可变实例 API 不支持编译器自动 memo；保持本组件逐次渲染。
+  'use no memo'
+
   const columns = useMemo<ColumnDef<BadgeRecord>[]>(
     () => [
       {
@@ -152,6 +155,8 @@ export function BadgeTableView({ items, sort, onSortChange, onOpen, earnedIds }:
 
   const sorting: SortingState = sortingStateFromKey(sort)
 
+  // 已通过 use no memo 隔离自动记忆化；实例仅在本组件内读取。
+  // eslint-disable-next-line react-hooks/incompatible-library
   const table = useReactTable({
     data: items,
     columns,
