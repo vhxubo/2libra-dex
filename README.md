@@ -1,6 +1,6 @@
 # 2Libra 图鉴
 
-2Libra 徽章图鉴:浏览已采集的徽章数据,支持搜索、筛选、排序、分页与详情分享;「潘多拉事件」页以纯表格展示已采集的事件记录,支持按稀有度与 tier_code 排序;内置数据来源页(`/sources`)与浅色/深色主题切换;支持使用 2libra 账号 OAuth 登录(Cloudflare Worker 代理授权码交换并签发会话)。站点包含徽章图鉴、潘多拉事件与数据来源三个页面。
+2Libra 徽章图鉴:浏览已采集的徽章数据,支持搜索、筛选、排序、分页与详情分享;「潘多拉事件」页以纯表格展示已采集的事件记录,支持按稀有度与 tier_code 排序;内置数据来源页(`/sources`)与浅色/深色主题切换;支持使用 2libra 账号 OAuth 登录(Cloudflare Worker 代理授权码交换并签发会话),登录后自动标记已获得的徽章并可按获得状态筛选。站点包含徽章图鉴、潘多拉事件与数据来源三个页面。
 
 > 数据说明:徽章数据来自对 2Libra 徽章卡片的公开页面采集(见根目录 `top/*.html` 与 `extract_badges.py`),当前 32 条记录;潘多拉事件数据来自社区收集贴([forum-function/nRdljKG](https://2libra.com/post/forum-function/nRdljKG))与其公开通知接口,当前 29 条采集记录,内容完全重复的仅保留最新一条,页面展示 21 条。本站不宣称是完整官方图鉴,也不推断稀有度名称、获取有效期或当前可获取状态。
 
@@ -51,8 +51,9 @@ extract_badges.py        # 采集解析脚本
 top/                     # 采集的原始页面快照(gitignore)
 wrangler.jsonc           # Cloudflare Workers 部署配置(main + assets)
 worker/                  # Cloudflare Worker(登录 API 与 SPA 回退)
-  index.ts               # 路由:/api/auth/* 四个端点,其余转静态资产
+  index.ts               # 路由:/api/auth/* 五个端点,其余转静态资产
   oauth.ts               # 2libra OAuth 调用(token 交换、拉取 /me)
+  userBadges.ts          # 抓取用户 about 页解析已获得徽章 id
   session.ts             # 会话令牌签发/校验(HMAC 签名 cookie)
   tsconfig.json          # worker 独立类型检查配置
 .dev.vars                # 本地开发密钥(gitignore)
@@ -98,6 +99,7 @@ src/
 | `q` | 搜索词,覆盖名称/ID/获取条件/属性,多关键词空格分隔且须全部命中 | `?q=篝火 金币` |
 | `level` | 等级多选,逗号分隔 | `?level=T0,T2` |
 | `attr` | 属性类型(佩戴属性/描述) | `?attr=描述` |
+| `earned` | 登录用户的获得状态筛选,`owned / missing`,需已登录拉到已获得数据才生效 | `?earned=owned` |
 | `sort` | `rate-desc / rate-asc / name-asc / name-desc`,默认 `rate-desc` | `?sort=rate-asc` |
 | `view` | `card`(默认)/ `table` | `?view=table` |
 | `page` | 页码,超出范围自动回正 | `?page=2` |
@@ -130,7 +132,12 @@ Worker 端点(`worker/index.ts`,同源 `/api/auth/*`):
 | `/api/auth/config` | GET | 返回 `client_id` 与 `redirect_uri`;未配置 secret 时 503,前端登录按钮自动降级为「登录暂未开放」 |
 | `/api/auth/exchange` | POST | 授权码换会话(code 单次、10 分钟有效由 2libra 保证) |
 | `/api/auth/session` | GET | 依据 cookie 返回当前用户,无效会话 401 |
+| `/api/auth/user-badges` | GET | 登录用户的已获得徽章 id 列表(Worker 代理抓取其 about 页解析,无会话 401) |
 | `/api/auth/logout` | POST | 清除会话 cookie |
+
+### 已获得徽章(登录后)
+
+登录成功后,前端调用 `/api/auth/user-badges`,Worker 以会话中的用户名抓取 `https://2libra.com/user/{用户名}/about`:该页会把佩戴徽章与徽章墙(客户端 `user-badge-display-modal` 弹窗的同一数据源)SSR 成 `r2.2libra.com/badge/svg/{id}.svg` 的图片引用,Worker 提取这些 id 即已获得徽章,无需用户在 2libra 侧额外授权。前端缓存 5 分钟,图鉴卡片/表格/详情弹窗展示「已获得」标记,并可在工具栏按 全部/已获得/未获得 筛选(URL 参数 `earned`);未登录或拉取失败时筛选与标记自动隐藏,不影响基础图鉴功能。
 
 会话为无状态签名 cookie,不依赖数据库;后续接入 Cloudflare D1 等存储时,加 wrangler binding 即可让 API 调用天然携带身份,登录流程无需重构。2libra 的 access_token 有效期 2 小时且无 refresh token,仅展示资料不受影响,需刷新资料时重新走一次授权。
 

@@ -15,6 +15,7 @@ import {
   LEVEL_COUNTS,
 } from './data'
 import { filterBadges, sortBadges } from './query'
+import { useEarnedBadges } from './useEarnedBadges'
 import { useOverflowTitle } from '@/lib/useOverflowTitle'
 import {
   badgeStateToSearchParams,
@@ -22,7 +23,7 @@ import {
   parseBadgeSearchParams,
   type BadgeUrlState,
 } from './urlState'
-import type { AttrType, BadgeLevel, CardIconMode, SortKey, ViewMode } from './types'
+import type { AttrType, BadgeLevel, CardIconMode, EarnedFilter, SortKey, ViewMode } from './types'
 import { PAGE_SIZE_OPTIONS } from './types'
 
 const DEFAULT_PAGE_SIZE: number = PAGE_SIZE_OPTIONS[0]
@@ -60,6 +61,7 @@ function EmptyState({ onClear }: { onClear: () => void }) {
 
 interface FilterChipsProps {
   state: BadgeUrlState
+  earnedAvailable: boolean
   onRemove: (patch: Partial<BadgeUrlState>) => void
   onClearAll: () => void
 }
@@ -74,7 +76,7 @@ function ChipLabel({ label }: { label: string }) {
   )
 }
 
-function FilterChips({ state, onRemove, onClearAll }: FilterChipsProps) {
+function FilterChips({ state, earnedAvailable, onRemove, onClearAll }: FilterChipsProps) {
   const chips: { key: string; label: string; remove: () => void }[] = []
 
   if (state.q.trim()) {
@@ -97,6 +99,14 @@ function FilterChips({ state, onRemove, onClearAll }: FilterChipsProps) {
       key: 'attr',
       label: `属性类型 ${state.attrType}`,
       remove: () => onRemove({ attrType: null }),
+    })
+  }
+  // 未登录时获得状态筛选不生效，也不展示对应标签
+  if (state.earned !== 'all' && earnedAvailable) {
+    chips.push({
+      key: 'earned',
+      label: state.earned === 'owned' ? '已获得' : '未获得',
+      remove: () => onRemove({ earned: 'all' }),
     })
   }
 
@@ -134,6 +144,11 @@ export default function BadgeDexPage() {
   const [selectMode, setSelectMode] = useState(false)
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const navigate = useNavigate()
+  const { earnedIds } = useEarnedBadges()
+  const ownedCount = useMemo(
+    () => (earnedIds === null ? 0 : BADGES.filter((badge) => earnedIds.has(badge.id)).length),
+    [earnedIds],
+  )
 
   const filtered = useMemo(
     () =>
@@ -141,8 +156,10 @@ export default function BadgeDexPage() {
         q: state.q,
         levels: state.levels,
         attrType: state.attrType,
+        earned: state.earned,
+        earnedIds,
       }),
-    [state.q, state.levels, state.attrType],
+    [state.q, state.levels, state.attrType, state.earned, earnedIds],
   )
   const sorted = useMemo(
     () => sortBadges(filtered, state.sort),
@@ -181,6 +198,10 @@ export default function BadgeDexPage() {
   )
   const handleAttrTypeChange = useCallback(
     (attrType: AttrType | null) => update({ attrType, page: 1 }),
+    [update],
+  )
+  const handleEarnedChange = useCallback(
+    (earned: EarnedFilter) => update({ earned, page: 1 }),
     [update],
   )
   const handleSortChange = useCallback(
@@ -256,6 +277,10 @@ export default function BadgeDexPage() {
         q={state.q}
         levels={state.levels}
         attrType={state.attrType}
+        earned={state.earned}
+        earnedAvailable={earnedIds !== null}
+        ownedCount={ownedCount}
+        totalCount={BADGE_COUNT}
         sort={state.sort}
         view={state.view}
         iconMode={state.iconMode}
@@ -264,6 +289,7 @@ export default function BadgeDexPage() {
         onQueryChange={handleQueryChange}
         onToggleLevel={handleToggleLevel}
         onAttrTypeChange={handleAttrTypeChange}
+        onEarnedChange={handleEarnedChange}
         onSortChange={handleSortChange}
         onViewChange={handleViewChange}
         onIconModeChange={handleIconModeChange}
@@ -276,8 +302,15 @@ export default function BadgeDexPage() {
         <p data-testid="result-count" className="shrink-0 whitespace-nowrap text-sm text-muted-foreground" aria-live="polite">
           共 <span className="font-semibold tabular-nums text-foreground">{sorted.length}</span> 枚徽章
         </p>
+        {earnedIds !== null && (
+          <p data-testid="owned-count" className="shrink-0 whitespace-nowrap text-sm text-muted-foreground">
+            你已获得{' '}
+            <span className="font-semibold tabular-nums text-foreground">{ownedCount}</span> 枚
+          </p>
+        )}
         <FilterChips
           state={state}
+          earnedAvailable={earnedIds !== null}
           onRemove={handleRemoveFilter}
           onClearAll={handleClearFilters}
         />
@@ -300,6 +333,7 @@ export default function BadgeDexPage() {
                 selected={selectedIds.includes(badge.id)}
                 onToggleSelect={handleToggleSelect}
                 iconMode={state.iconMode}
+                earned={earnedIds?.has(badge.id) ?? false}
               />
             ))}
           </div>
@@ -309,6 +343,7 @@ export default function BadgeDexPage() {
             sort={state.sort}
             onSortChange={handleSortChange}
             onOpen={(id) => update({ badgeId: id })}
+            earnedIds={earnedIds}
           />
         )}
       </div>
@@ -363,6 +398,7 @@ export default function BadgeDexPage() {
         badge={activeBadge}
         badgeId={state.badgeId}
         iconMode={state.iconMode}
+        earned={activeBadge !== undefined && earnedIds?.has(activeBadge.id) === true}
         onOpenChange={(open) => {
           if (!open) update({ badgeId: null })
         }}

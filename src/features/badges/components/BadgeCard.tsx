@@ -4,6 +4,7 @@ import type { BadgeRecord, CardIconMode } from '../types'
 import { formatRate } from '../query'
 import { useOverflowTitle } from '@/lib/useOverflowTitle'
 import { BadgeImage } from './BadgeImage'
+import { EarnedChip } from './EarnedChip'
 import { LevelChip } from './LevelChip'
 
 interface BadgeCardProps {
@@ -15,6 +16,8 @@ interface BadgeCardProps {
   onToggleSelect?: (id: string) => void
   /** 展示小图标（icon）还是大图标（exportIcon），默认小图标。 */
   iconMode?: CardIconMode
+  /** 登录用户已获得该徽章时传入 true，展示状态标记。 */
+  earned?: boolean
 }
 
 export function BadgeCard({
@@ -24,6 +27,7 @@ export function BadgeCard({
   selected = false,
   onToggleSelect,
   iconMode = 'small',
+  earned = false,
 }: BadgeCardProps) {
   const nameRef = useOverflowTitle<HTMLHeadingElement>(badge.name)
   const conditionRef = useOverflowTitle<HTMLParagraphElement>(badge.condition)
@@ -83,6 +87,7 @@ export function BadgeCard({
           </h3>
           <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
             <LevelChip level={badge.level} className="shrink-0" />
+            {earned && <EarnedChip className="shrink-0" />}
             <span className="whitespace-nowrap">
               获得率{' '}
               <span className="font-semibold tabular-nums text-foreground">

@@ -1,5 +1,5 @@
 import type { SortingState } from '@tanstack/react-table'
-import type { AttrType, BadgeLevel, BadgeRecord, SortKey } from './types'
+import type { AttrType, BadgeLevel, BadgeRecord, EarnedFilter, SortKey } from './types'
 import { DEFAULT_SORT_KEY } from './types'
 
 export interface BadgeFilters {
@@ -9,12 +9,18 @@ export interface BadgeFilters {
   levels: BadgeLevel[]
   /** 属性类型，null 表示全部 */
   attrType: AttrType | null
+  /** 登录用户的获得状态筛选；earnedIds 为 null 时忽略 */
+  earned: EarnedFilter
+  /** 已获得徽章 id 集合，null 表示数据不可用（未登录/加载失败） */
+  earnedIds: ReadonlySet<string> | null
 }
 
 export const EMPTY_FILTERS: BadgeFilters = {
   q: '',
   levels: [],
   attrType: null,
+  earned: 'all',
+  earnedIds: null,
 }
 
 /** 搜索文本归一化：去除首尾空白、忽略大小写、按空白拆分关键词。 */
@@ -33,12 +39,20 @@ export function matchesQuery(badge: BadgeRecord, rawQuery: string): boolean {
   return normalizeQuery(rawQuery).every((keyword) => haystack.includes(keyword))
 }
 
+/** 获得状态筛选；数据不可用时不过滤，避免误伤成空列表。 */
+function matchesEarned(id: string, filters: BadgeFilters): boolean {
+  if (filters.earned === 'all' || filters.earnedIds === null) return true
+  const owned = filters.earnedIds.has(id)
+  return filters.earned === 'owned' ? owned : !owned
+}
+
 /** 各筛选条件取交集。 */
 export function filterBadges(badges: BadgeRecord[], filters: BadgeFilters): BadgeRecord[] {
   return badges.filter(
     (badge) =>
       (filters.levels.length === 0 || filters.levels.includes(badge.level)) &&
       (filters.attrType === null || badge.attrType === filters.attrType) &&
+      matchesEarned(badge.id, filters) &&
       matchesQuery(badge, filters.q),
   )
 }

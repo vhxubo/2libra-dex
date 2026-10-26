@@ -1,13 +1,55 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
-import { describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { AuthProvider } from '@/features/auth/AuthContext'
+import type { OAuthUser } from '@/features/auth/types'
 import BadgeDexPage from './BadgeDexPage'
+import { resetEarnedBadgesCache } from './useEarnedBadges'
+
+const testUser: OAuthUser = {
+  id: 'u1',
+  username: 'jimmy',
+  user_number: 'u_123',
+  avatar_url: null,
+  level: 4,
+}
+
+let sessionUser: OAuthUser | null = null
+let userBadges: string[] = []
+
+const fetchMock = vi.fn((input: RequestInfo | URL): Promise<Response> => {
+  const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
+  if (url.includes('/api/auth/config')) {
+    return Promise.resolve(Response.json({ client_id: 'cid', redirect_uri: 'https://app/cb' }))
+  }
+  if (url.includes('/api/auth/session')) {
+    return Promise.resolve(Response.json({ user: sessionUser }, { status: sessionUser ? 200 : 401 }))
+  }
+  if (url.includes('/api/auth/user-badges')) {
+    return Promise.resolve(Response.json({ username: 'jimmy', badges: userBadges }))
+  }
+  return Promise.reject(new Error(`unexpected fetch: ${url}`))
+})
+
+beforeEach(() => {
+  vi.stubGlobal('fetch', fetchMock)
+  fetchMock.mockClear()
+  sessionUser = null
+  userBadges = []
+  resetEarnedBadgesCache()
+})
+
+afterEach(() => {
+  vi.unstubAllGlobals()
+})
 
 function renderPage(initialEntry = '/badges') {
   return render(
     <MemoryRouter initialEntries={[initialEntry]}>
-      <BadgeDexPage />
+      <AuthProvider>
+        <BadgeDexPage />
+      </AuthProvider>
     </MemoryRouter>,
   )
 }
@@ -188,5 +230,50 @@ describe('BadgeDexPage', () => {
     expect(img).not.toBeNull()
     fireEvent.error(img!)
     expect(screen.getAllByTitle('图片加载失败').length).toBeGreaterThan(0)
+  })
+
+  it('未登录时不展示获得状态筛选与标记', async () => {
+    renderPage()
+    await waitFor(() => expect(screen.queryByTestId('owned-count')).not.toBeInTheDocument())
+    expect(screen.queryByRole('group', { name: '获得状态' })).not.toBeInTheDocument()
+    expect(screen.queryAllByTestId('earned-chip')).toHaveLength(0)
+  })
+
+  it('登录后展示已获得标记与数量，可按获得状态筛选', async () => {
+    const user = userEvent.setup()
+    sessionUser = testUser
+    // 2libra 一周年！（2libra_1）与篝火（followers）为已获得
+    userBadges = ['2libra_1', 'followers']
+    renderPage()
+
+    const ownedCount = await screen.findByTestId('owned-count')
+    expect(ownedCount.textContent).toContain('2')
+    // 默认排序首页第一张「2Libra 一周年！」带已获得标记
+    const firstCard = screen.getAllByTestId('badge-card')[0]
+    expect(within(firstCard).getByTestId('earned-chip')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: /已获得/ }))
+    expect(screen.getByTestId('result-count').textContent).toContain('2')
+    expect(screen.getAllByTestId('badge-card')).toHaveLength(2)
+    // 筛选后列表里每张卡片都带已获得标记
+    expect(screen.getAllByTestId('earned-chip')).toHaveLength(2)
+
+    await user.click(screen.getByRole('button', { name: /未获得/ }))
+    expect(screen.getByTestId('result-count').textContent).toContain('30')
+
+    await user.click(screen.getByRole('button', { name: /^全部/ }))
+    expect(screen.getByTestId('result-count').textContent).toContain('32')
+  })
+
+  it('表格视图登录后增加获得状态列', async () => {
+    sessionUser = testUser
+    userBadges = ['2libra_1']
+    renderPage('/badges?view=table')
+
+    await screen.findByTestId('owned-count')
+    expect(screen.getByRole('columnheader', { name: '获得状态' })).toBeInTheDocument()
+    const rows = screen.getAllByTestId('badge-row')
+    expect(within(rows[0]).getByTestId('earned-chip')).toBeInTheDocument()
+    expect(within(rows[1]).queryByTestId('earned-chip')).not.toBeInTheDocument()
   })
 })

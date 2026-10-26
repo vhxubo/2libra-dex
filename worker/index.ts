@@ -11,6 +11,7 @@ import {
   sessionCookie,
   verifySessionToken,
 } from './session'
+import { fetchUserBadges, UserBadgesUnavailableError } from './userBadges'
 
 interface Env {
   /** Cloudflare 静态资产绑定。 */
@@ -97,6 +98,8 @@ async function handleAuthRequest(request: Request, env: Env): Promise<Response> 
       return handleExchange(request, env)
     case 'GET /api/auth/session':
       return handleSession(request, env)
+    case 'GET /api/auth/user-badges':
+      return handleUserBadges(request, env)
     case 'POST /api/auth/logout':
       return Response.json({ ok: true }, { headers: { 'Set-Cookie': clearedSessionCookie() } })
     default:
@@ -150,4 +153,29 @@ async function handleSession(request: Request, env: Env): Promise<Response> {
     return Response.json({ user: null }, { status: 401 })
   }
   return Response.json({ user })
+}
+
+/** 会话用户在 2libra 已获得的徽章 id 列表；由 Worker 代理抓取，绕开浏览器跨域限制。 */
+async function handleUserBadges(request: Request, env: Env): Promise<Response> {
+  if (env.AUTH_SESSION_KEY === undefined) {
+    return Response.json({ message: '登录功能尚未配置' }, { status: 503 })
+  }
+  const token = readSessionToken(request.headers.get('cookie'))
+  const user = token === null ? null : await verifySessionToken(token, env.AUTH_SESSION_KEY)
+  if (user === null) {
+    return Response.json({ message: '未登录或会话已过期' }, { status: 401 })
+  }
+  let badges: string[]
+  try {
+    badges = await fetchUserBadges(user.username)
+  } catch (error) {
+    if (error instanceof UserBadgesUnavailableError) {
+      return Response.json({ message: error.message }, { status: 502 })
+    }
+    return Response.json({ message: '徽章获取失败，请稍后重试' }, { status: 500 })
+  }
+  return Response.json(
+    { username: user.username, badges },
+    { headers: { 'Cache-Control': 'no-store' } },
+  )
 }

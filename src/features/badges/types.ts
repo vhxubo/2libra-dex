@@ -12,6 +12,14 @@ export const SORT_OPTIONS = [
 ] as const
 export type SortKey = (typeof SORT_OPTIONS)[number]['value']
 
+/** 按登录用户的获得状态筛选；数据未加载时等同于 all。 */
+export const EARNED_FILTER_OPTIONS = [
+  { value: 'all', label: '全部' },
+  { value: 'owned', label: '已获得' },
+  { value: 'missing', label: '未获得' },
+] as const
+export type EarnedFilter = (typeof EARNED_FILTER_OPTIONS)[number]['value']
+
 /** 默认排序：获得率从高到低。 */
 export const DEFAULT_SORT_KEY: SortKey = 'rate-desc'
 

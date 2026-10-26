@@ -14,6 +14,7 @@ import { formatRate } from '../query'
 import type { BadgeRecord, CardIconMode } from '../types'
 import { useOverflowTitle } from '@/lib/useOverflowTitle'
 import { BadgeImage } from './BadgeImage'
+import { EarnedChip } from './EarnedChip'
 import { LevelChip } from './LevelChip'
 
 interface BadgeDetailDialogProps {
@@ -23,6 +24,8 @@ interface BadgeDetailDialogProps {
   badgeId: string | null
   /** 展示小图标（icon）还是大图标（exportIcon），与页面卡片图标开关联动。 */
   iconMode?: CardIconMode
+  /** 登录用户已获得该徽章时传入 true，展示状态标记。 */
+  earned?: boolean
 }
 
 async function copyText(text: string): Promise<boolean> {
@@ -55,6 +58,7 @@ export function BadgeDetailDialog({
   badge,
   badgeId,
   iconMode = 'small',
+  earned = false,
 }: BadgeDetailDialogProps) {
   // 复制结果按徽章 ID 记录，切换徽章时自然失效，无需在 effect 中重置
   const [copyResult, setCopyResult] = useState<{ id: string; state: 'done' | 'fail' } | null>(null)
@@ -120,6 +124,7 @@ export function BadgeDetailDialog({
               </DialogTitle>
               <div className="mt-1.5 flex items-center gap-2 text-xs text-muted-foreground">
                 <LevelChip level={badge.level} />
+                {earned && <EarnedChip />}
                 <span ref={idRef} className="truncate font-mono text-xs">
                   {badge.id}
                 </span>

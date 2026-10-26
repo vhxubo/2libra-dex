@@ -22,12 +22,13 @@ describe('parseBadgeSearchParams', () => {
 
   it('解析全部合法参数', () => {
     const state = parse(
-      '?q=篝火&level=T0,T2&attr=佩戴属性&sort=rate-desc&view=table&icon=large&page=3&badge=followers',
+      '?q=篝火&level=T0,T2&attr=佩戴属性&earned=owned&sort=rate-desc&view=table&icon=large&page=3&badge=followers',
     )
     expect(state).toEqual({
       q: '篝火',
       levels: ['T0', 'T2'],
       attrType: '佩戴属性',
+      earned: 'owned',
       sort: 'rate-desc',
       view: 'table',
       iconMode: 'large',
@@ -56,6 +57,13 @@ describe('parseBadgeSearchParams', () => {
     expect(parse('?attr=描述').attrType).toBe('描述')
   })
 
+  it('获得状态只接受 owned / missing，其余恢复默认', () => {
+    expect(parse('?earned=owned').earned).toBe('owned')
+    expect(parse('?earned=missing').earned).toBe('missing')
+    expect(parse('?earned=all').earned).toBe('all')
+    expect(parse('?earned=bogus').earned).toBe('all')
+  })
+
   it('详情徽章 ID 保留并去除首尾空白', () => {
     expect(parse('?badge= followers ').badgeId).toBe('followers')
     expect(parse('?badge=').badgeId).toBeNull()
@@ -73,10 +81,22 @@ describe('badgeStateToSearchParams', () => {
 
   it('解析-序列化-再解析保持一致', () => {
     const query =
-      '?q=篝火&level=T0,T2&attr=佩戴属性&sort=rate-desc&view=table&icon=large&page=3&badge=followers'
+      '?q=篝火&level=T0,T2&attr=佩戴属性&earned=missing&sort=rate-desc&view=table&icon=large&page=3&badge=followers'
     const once = parse(query)
     const params = badgeStateToSearchParams(once)
     expect(parse(`?${params.toString()}`)).toEqual(once)
+  })
+
+  it('获得状态非默认值时写入 earned 参数，默认不写入', () => {
+    expect(badgeStateToSearchParams({ ...DEFAULT_URL_STATE, earned: 'owned' }).get('earned')).toBe(
+      'owned',
+    )
+    expect(badgeStateToSearchParams({ ...DEFAULT_URL_STATE, earned: 'missing' }).get('earned')).toBe(
+      'missing',
+    )
+    expect(badgeStateToSearchParams({ ...DEFAULT_URL_STATE, earned: 'all' }).get('earned')).toBe(
+      null,
+    )
   })
 
   it('大图标写入 icon 参数，小图标不写入', () => {

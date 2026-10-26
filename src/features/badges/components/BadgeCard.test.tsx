@@ -87,4 +87,12 @@ describe('BadgeCard', () => {
     expect(largeImg.getAttribute('src')).toBe(badge.exportIcon)
     expect(largeImg.className).toContain('size-20')
   })
+
+  it('earned 时展示已获得标记，默认不展示', () => {
+    const { rerender } = render(<BadgeCard badge={badge} onOpen={vi.fn()} />)
+    expect(screen.queryByTestId('earned-chip')).not.toBeInTheDocument()
+
+    rerender(<BadgeCard badge={badge} onOpen={vi.fn()} earned />)
+    expect(screen.getByTestId('earned-chip')).toBeInTheDocument()
+  })
 })

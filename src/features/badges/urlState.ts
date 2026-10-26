@@ -2,10 +2,12 @@ import {
   ATTR_TYPES,
   BADGE_LEVELS,
   DEFAULT_SORT_KEY,
+  EARNED_FILTER_OPTIONS,
   SORT_OPTIONS,
   type AttrType,
   type BadgeLevel,
   type CardIconMode,
+  type EarnedFilter,
   type SortKey,
   type ViewMode,
 } from './types'
@@ -15,6 +17,8 @@ export interface BadgeUrlState {
   q: string
   levels: BadgeLevel[]
   attrType: AttrType | null
+  /** 登录用户的获得状态筛选；未登录时等同 all。 */
+  earned: EarnedFilter
   sort: SortKey
   view: ViewMode
   iconMode: CardIconMode
@@ -26,6 +30,7 @@ export const DEFAULT_URL_STATE: BadgeUrlState = {
   q: '',
   levels: [],
   attrType: null,
+  earned: 'all',
   sort: DEFAULT_SORT_KEY,
   view: 'card',
   iconMode: 'small',
@@ -34,6 +39,7 @@ export const DEFAULT_URL_STATE: BadgeUrlState = {
 }
 
 const SORT_VALUES: readonly string[] = SORT_OPTIONS.map((option) => option.value)
+const EARNED_VALUES: readonly string[] = EARNED_FILTER_OPTIONS.map((option) => option.value)
 const PAGE_PATTERN = /^\d+$/
 
 function parseLevelsParam(raw: string | null): BadgeLevel[] {
@@ -52,6 +58,7 @@ function parseLevelsParam(raw: string | null): BadgeLevel[] {
 /** 解析 URL 查询参数；任何非法值恢复为默认。 */
 export function parseBadgeSearchParams(params: URLSearchParams): BadgeUrlState {
   const sortRaw = params.get('sort')
+  const earnedRaw = params.get('earned')
   const pageRaw = params.get('page')
   const page = pageRaw !== null && PAGE_PATTERN.test(pageRaw) ? Number.parseInt(pageRaw, 10) : NaN
 
@@ -59,6 +66,9 @@ export function parseBadgeSearchParams(params: URLSearchParams): BadgeUrlState {
     q: params.get('q') ?? '',
     levels: parseLevelsParam(params.get('level')),
     attrType: ATTR_TYPES.find((attrType) => params.get('attr') === attrType) ?? null,
+    earned: EARNED_VALUES.includes(earnedRaw as EarnedFilter)
+      ? (earnedRaw as EarnedFilter)
+      : 'all',
     sort: SORT_VALUES.includes(sortRaw as SortKey) ? (sortRaw as SortKey) : DEFAULT_SORT_KEY,
     view: params.get('view') === 'table' ? 'table' : 'card',
     iconMode: params.get('icon') === 'large' ? 'large' : 'small',
@@ -73,6 +83,7 @@ export function badgeStateToSearchParams(state: BadgeUrlState): URLSearchParams 
   if (state.q.trim()) params.set('q', state.q)
   if (state.levels.length > 0) params.set('level', state.levels.join(','))
   if (state.attrType !== null) params.set('attr', state.attrType)
+  if (state.earned !== 'all') params.set('earned', state.earned)
   if (state.sort !== DEFAULT_SORT_KEY) params.set('sort', state.sort)
   if (state.view !== 'card') params.set('view', state.view)
   if (state.iconMode !== 'small') params.set('icon', state.iconMode)

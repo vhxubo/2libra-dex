@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 import { ATTR_TYPE_OPTIONS } from '../data'
@@ -15,6 +15,10 @@ function renderToolbar({ q = '' }: { q?: string } = {}) {
     q,
     levels: [...BADGE_LEVELS],
     attrType: null,
+    earned: 'all',
+    earnedAvailable: false,
+    ownedCount: 0,
+    totalCount: 32,
     sort: SORT_OPTIONS[0].value,
     view: 'card',
     iconMode: 'small',
@@ -27,6 +31,7 @@ function renderToolbar({ q = '' }: { q?: string } = {}) {
     onQueryChange,
     onToggleLevel: vi.fn(),
     onAttrTypeChange: vi.fn(),
+    onEarnedChange: vi.fn(),
     onSortChange: vi.fn(),
     onViewChange: vi.fn(),
     onIconModeChange: vi.fn(),
@@ -104,5 +109,67 @@ describe('BadgeToolbar 搜索框输入法适配', () => {
     rerenderWithQ('')
 
     expect(input.value).toBe('')
+  })
+})
+
+describe('BadgeToolbar 获得状态筛选', () => {
+  function renderEarnedToolbar(props: Partial<ToolbarProps> = {}) {
+    const onEarnedChange = vi.fn<ToolbarProps['onEarnedChange']>()
+    render(
+      <BadgeToolbar
+        q=""
+        levels={[]}
+        attrType={null}
+        earned="all"
+        earnedAvailable
+        ownedCount={5}
+        totalCount={32}
+        sort="rate-desc"
+        view="card"
+        iconMode="small"
+        levelCounts={Object.fromEntries(
+          BADGE_LEVELS.map((level) => [level, 1]),
+        ) as ToolbarProps['levelCounts']}
+        attrTypeCounts={Object.fromEntries(
+          ATTR_TYPE_OPTIONS.map((option) => [option, 1]),
+        ) as ToolbarProps['attrTypeCounts']}
+        onQueryChange={vi.fn()}
+        onToggleLevel={vi.fn()}
+        onAttrTypeChange={vi.fn()}
+        onEarnedChange={onEarnedChange}
+        onSortChange={vi.fn()}
+        onViewChange={vi.fn()}
+        onIconModeChange={vi.fn()}
+        selectMode={false}
+        selectedCount={0}
+        onToggleSelectMode={vi.fn()}
+        {...props}
+      />,
+    )
+    return { onEarnedChange }
+  }
+
+  it('已获得数据可用时展示选项与数量', () => {
+    renderEarnedToolbar()
+    const group = screen.getByRole('group', { name: '获得状态' })
+    expect(within(group).getByRole('button', { name: /全部/ }).textContent).toContain('32')
+    expect(within(group).getByRole('button', { name: /已获得/ }).textContent).toContain('5')
+    expect(within(group).getByRole('button', { name: /未获得/ }).textContent).toContain('27')
+  })
+
+  it('点击选项上报对应筛选值', async () => {
+    const user = userEvent.setup()
+    const { onEarnedChange } = renderEarnedToolbar({ earned: 'all' })
+
+    await user.click(screen.getByRole('button', { name: /已获得/ }))
+    expect(onEarnedChange).toHaveBeenCalledWith('owned')
+
+    await user.click(screen.getByRole('button', { name: /未获得/ }))
+    expect(onEarnedChange).toHaveBeenCalledWith('missing')
+  })
+
+  it('数据不可用（未登录）时隐藏该筛选组', () => {
+    renderEarnedToolbar({ earnedAvailable: false })
+    expect(screen.queryByRole('group', { name: '获得状态' })).not.toBeInTheDocument()
   })
 })

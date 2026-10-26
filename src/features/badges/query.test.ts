@@ -76,9 +76,35 @@ describe('filterBadges', () => {
       q: '签到',
       levels: ['T0'],
       attrType: '佩戴属性',
+      earned: 'all',
+      earnedIds: null,
     })
     expect(result.every((badge) => badge.level === 'T0' && badge.attrType === '佩戴属性')).toBe(true)
     expect(result.length).toBeGreaterThan(0)
+  })
+
+  it('获得状态筛选：owned 只保留已获得，missing 反之', () => {
+    const earnedIds = new Set(['followers', 'year_streak'])
+    const owned = filterBadges(BADGES, { ...EMPTY_FILTERS, earned: 'owned', earnedIds })
+    expect(owned.map((badge) => badge.id)).toEqual(['followers', 'year_streak'])
+    const missing = filterBadges(BADGES, { ...EMPTY_FILTERS, earned: 'missing', earnedIds })
+    expect(missing).toHaveLength(30)
+    expect(missing.every((badge) => !earnedIds.has(badge.id))).toBe(true)
+  })
+
+  it('获得状态筛选与其他条件取交集', () => {
+    const owned = filterBadges(BADGES, {
+      ...EMPTY_FILTERS,
+      levels: ['T0'],
+      earned: 'owned',
+      earnedIds: new Set(['followers', 'year_streak']),
+    })
+    expect(owned.map((badge) => badge.id)).toEqual(['followers', 'year_streak'])
+  })
+
+  it('已获得数据不可用时获得状态筛选不生效，避免误清空列表', () => {
+    expect(filterBadges(BADGES, { ...EMPTY_FILTERS, earned: 'owned', earnedIds: null })).toHaveLength(32)
+    expect(filterBadges(BADGES, { ...EMPTY_FILTERS, earned: 'missing', earnedIds: null })).toHaveLength(32)
   })
 })
 

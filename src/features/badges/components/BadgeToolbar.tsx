@@ -23,10 +23,12 @@ import { cn } from '@/lib/utils'
 import { ATTR_TYPE_OPTIONS } from '../data'
 import {
   BADGE_LEVELS,
+  EARNED_FILTER_OPTIONS,
   SORT_OPTIONS,
   type AttrType,
   type BadgeLevel,
   type CardIconMode,
+  type EarnedFilter,
   type SortKey,
   type ViewMode,
 } from '../types'
@@ -35,6 +37,14 @@ interface BadgeToolbarProps {
   q: string
   levels: BadgeLevel[]
   attrType: AttrType | null
+  /** 获得状态筛选当前值。 */
+  earned: EarnedFilter
+  /** 已获得数据是否可用（登录且加载完成）；不可用时隐藏该筛选组。 */
+  earnedAvailable: boolean
+  /** 已获得徽章数量，展示在选项标签上。 */
+  ownedCount: number
+  /** 收录的徽章总数，展示在选项标签上。 */
+  totalCount: number
   sort: SortKey
   view: ViewMode
   iconMode: CardIconMode
@@ -45,6 +55,7 @@ interface BadgeToolbarProps {
   onQueryChange: (q: string) => void
   onToggleLevel: (level: BadgeLevel) => void
   onAttrTypeChange: (attrType: AttrType | null) => void
+  onEarnedChange: (earned: EarnedFilter) => void
   onSortChange: (sort: SortKey) => void
   onViewChange: (view: ViewMode) => void
   onIconModeChange: (iconMode: CardIconMode) => void
@@ -55,6 +66,10 @@ export function BadgeToolbar({
   q,
   levels,
   attrType,
+  earned,
+  earnedAvailable,
+  ownedCount,
+  totalCount,
   sort,
   view,
   iconMode,
@@ -65,6 +80,7 @@ export function BadgeToolbar({
   onQueryChange,
   onToggleLevel,
   onAttrTypeChange,
+  onEarnedChange,
   onSortChange,
   onViewChange,
   onIconModeChange,
@@ -183,6 +199,34 @@ export function BadgeToolbar({
         </DropdownMenu>
 
         <div className="flex w-full flex-wrap items-center gap-2 sm:ms-auto sm:w-auto">
+          {earnedAvailable && (
+            <div
+              role="group"
+              aria-label="获得状态"
+              className="inline-flex items-center rounded-md border border-input bg-card p-0.5"
+            >
+              {EARNED_FILTER_OPTIONS.map(({ value, label }) => (
+                <button
+                  key={value}
+                  type="button"
+                  aria-pressed={earned === value}
+                  onClick={() => onEarnedChange(value)}
+                  className={cn(
+                    'inline-flex h-8 items-center gap-1.5 rounded-[6px] px-2.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                    earned === value
+                      ? 'bg-primary text-primary-foreground'
+                      : 'text-muted-foreground hover:text-foreground',
+                  )}
+                >
+                  {label}
+                  <span className="tabular-nums opacity-80">
+                    {value === 'owned' ? ownedCount : value === 'missing' ? totalCount - ownedCount : totalCount}
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
+
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" size="sm" className="min-w-0 flex-1 gap-1.5 sm:flex-none">

@@ -21,6 +21,7 @@ import { useOverflowTitle } from '@/lib/useOverflowTitle'
 import { formatRate, sortingStateFromKey, sortKeyFromSortingState } from '../query'
 import type { BadgeRecord, SortKey } from '../types'
 import { BadgeImage } from './BadgeImage'
+import { EarnedChip } from './EarnedChip'
 import { LevelChip } from './LevelChip'
 
 interface BadgeTableViewProps {
@@ -28,6 +29,8 @@ interface BadgeTableViewProps {
   sort: SortKey
   onSortChange: (sort: SortKey) => void
   onOpen: (id: string) => void
+  /** 登录用户的已获得徽章集合；非 null 时增加获得状态列。 */
+  earnedIds: ReadonlySet<string> | null
 }
 
 function BadgeNameCell({ badge }: { badge: BadgeRecord }) {
@@ -64,7 +67,7 @@ function ClampedTextCell({ text }: { text: string }) {
   )
 }
 
-export function BadgeTableView({ items, sort, onSortChange, onOpen }: BadgeTableViewProps) {
+export function BadgeTableView({ items, sort, onSortChange, onOpen, earnedIds }: BadgeTableViewProps) {
   const columns = useMemo<ColumnDef<BadgeRecord>[]>(
     () => [
       {
@@ -81,6 +84,21 @@ export function BadgeTableView({ items, sort, onSortChange, onOpen }: BadgeTable
         enableSorting: false,
         cell: ({ row }) => <LevelChip level={row.original.level} />,
       },
+      ...(earnedIds !== null
+        ? [
+            {
+              id: 'earned',
+              header: '获得状态',
+              enableSorting: false,
+              cell: ({ row }: { row: { original: BadgeRecord } }) =>
+                earnedIds.has(row.original.id) ? (
+                  <EarnedChip />
+                ) : (
+                  <span className="text-xs text-muted-foreground">未获得</span>
+                ),
+            } satisfies ColumnDef<BadgeRecord>,
+          ]
+        : []),
       {
         id: 'rate',
         accessorKey: 'rate',
@@ -129,7 +147,7 @@ export function BadgeTableView({ items, sort, onSortChange, onOpen }: BadgeTable
         ),
       },
     ],
-    [onOpen],
+    [onOpen, earnedIds],
   )
 
   const sorting: SortingState = sortingStateFromKey(sort)
