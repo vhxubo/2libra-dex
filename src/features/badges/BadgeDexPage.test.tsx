@@ -17,6 +17,7 @@ const testUser: OAuthUser = {
 
 let sessionUser: OAuthUser | null = null
 let userBadges: string[] = []
+let userBadgesFail = false
 
 const fetchMock = vi.fn((input: RequestInfo | URL): Promise<Response> => {
   const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
@@ -27,6 +28,9 @@ const fetchMock = vi.fn((input: RequestInfo | URL): Promise<Response> => {
     return Promise.resolve(Response.json({ user: sessionUser }, { status: sessionUser ? 200 : 401 }))
   }
   if (url.includes('/api/auth/user-badges')) {
+    if (userBadgesFail) {
+      return Promise.resolve(Response.json({ message: '上游不可用' }, { status: 502 }))
+    }
     return Promise.resolve(Response.json({ username: 'jimmy', badges: userBadges }))
   }
   return Promise.reject(new Error(`unexpected fetch: ${url}`))
@@ -37,6 +41,7 @@ beforeEach(() => {
   fetchMock.mockClear()
   sessionUser = null
   userBadges = []
+  userBadgesFail = false
   resetEarnedBadgesCache()
 })
 
@@ -275,5 +280,58 @@ describe('BadgeDexPage', () => {
     const rows = screen.getAllByTestId('badge-row')
     expect(within(rows[0]).getByTestId('earned-chip')).toBeInTheDocument()
     expect(within(rows[1]).queryByTestId('earned-chip')).not.toBeInTheDocument()
+  })
+
+  it('手动刷新绕过缓存并更新获得状态', async () => {
+    const user = userEvent.setup()
+    sessionUser = testUser
+    userBadges = ['2libra_1']
+    renderPage()
+
+    expect((await screen.findByTestId('owned-count')).textContent).toContain('1')
+    userBadges = ['2libra_1', 'followers']
+    await user.click(screen.getByRole('button', { name: '刷新获得状态' }))
+
+    await waitFor(() => expect(screen.getByTestId('owned-count').textContent).toContain('2'))
+    expect(
+      fetchMock.mock.calls.filter(([input]) => String(input).includes('/api/auth/user-badges')),
+    ).toHaveLength(2)
+  })
+
+  it('刷新失败保留旧状态，并可在页面内重试', async () => {
+    const user = userEvent.setup()
+    sessionUser = testUser
+    userBadges = ['2libra_1']
+    renderPage()
+
+    expect((await screen.findByTestId('owned-count')).textContent).toContain('1')
+    userBadgesFail = true
+    await user.click(screen.getByRole('button', { name: '刷新获得状态' }))
+
+    expect(await screen.findByText('刷新失败，保留上次结果')).toBeInTheDocument()
+    expect(screen.getByTestId('owned-count').textContent).toContain('1')
+    expect(screen.getByRole('button', { name: '重试获取' })).toBeInTheDocument()
+
+    userBadgesFail = false
+    userBadges = ['2libra_1', 'followers']
+    await user.click(screen.getByRole('button', { name: '重试获取' }))
+
+    await waitFor(() => expect(screen.getByTestId('owned-count').textContent).toContain('2'))
+    expect(screen.queryByTestId('earned-error')).not.toBeInTheDocument()
+  })
+
+  it('初次获取失败时显示重试入口', async () => {
+    const user = userEvent.setup()
+    sessionUser = testUser
+    userBadgesFail = true
+    renderPage()
+
+    expect(await screen.findByTestId('earned-error')).toHaveTextContent('获得状态获取失败')
+    userBadgesFail = false
+    userBadges = ['2libra_1']
+    await user.click(screen.getByRole('button', { name: '重试获取' }))
+
+    expect((await screen.findByTestId('owned-count')).textContent).toContain('1')
+    expect(screen.queryByTestId('earned-error')).not.toBeInTheDocument()
   })
 })

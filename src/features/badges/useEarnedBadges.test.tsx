@@ -96,6 +96,15 @@ describe('useEarnedBadges', () => {
     await waitFor(() => expect(screen.getByTestId('probe').textContent).toBe('none'))
   })
 
+  it('响应用户与当前会话不匹配时拒绝使用数据', async () => {
+    sessionUser = testUser
+    badgesHandler = () =>
+      Response.json({ username: 'someone-else', badges: ['i_was_here'] })
+    renderProbe()
+
+    await waitFor(() => expect(screen.getByTestId('probe').textContent).toBe('none'))
+  })
+
   it('5 分钟内重复挂载命中缓存，不重复请求', async () => {
     sessionUser = testUser
     const first = renderProbe()

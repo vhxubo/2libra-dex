@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
-import { Database, Film, SearchX, Sparkles, X } from 'lucide-react'
+import { Database, Film, RefreshCw, SearchX, Sparkles, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Pagination } from '@/components/Pagination'
 import { BadgeCard } from './components/BadgeCard'
@@ -144,7 +144,8 @@ export default function BadgeDexPage() {
   const [selectMode, setSelectMode] = useState(false)
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const navigate = useNavigate()
-  const { earnedIds } = useEarnedBadges()
+  const { earnedIds, enabled: earnedEnabled, loading: earnedLoading, error: earnedError, refresh } =
+    useEarnedBadges()
   const ownedCount = useMemo(
     () => (earnedIds === null ? 0 : BADGES.filter((badge) => earnedIds.has(badge.id)).length),
     [earnedIds],
@@ -302,11 +303,39 @@ export default function BadgeDexPage() {
         <p data-testid="result-count" className="shrink-0 whitespace-nowrap text-sm text-muted-foreground" aria-live="polite">
           共 <span className="font-semibold tabular-nums text-foreground">{sorted.length}</span> 枚徽章
         </p>
-        {earnedIds !== null && (
-          <p data-testid="owned-count" className="shrink-0 whitespace-nowrap text-sm text-muted-foreground">
-            你已获得{' '}
-            <span className="font-semibold tabular-nums text-foreground">{ownedCount}</span> 枚
-          </p>
+        {earnedEnabled && (
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+            {earnedIds !== null ? (
+              <p data-testid="owned-count" className="shrink-0 whitespace-nowrap text-sm text-muted-foreground">
+                你已获得{' '}
+                <span className="font-semibold tabular-nums text-foreground">{ownedCount}</span> 枚
+              </p>
+            ) : earnedError ? (
+              <p data-testid="earned-error" role="status" className="text-sm text-destructive">
+                获得状态获取失败
+              </p>
+            ) : (
+              <p className="text-sm text-muted-foreground" aria-live="polite">
+                正在获取获得状态…
+              </p>
+            )}
+            <Button
+              variant="ghost"
+              size="sm"
+              data-testid="refresh-earned"
+              disabled={earnedLoading}
+              onClick={() => void refresh()}
+              className="h-8 gap-1.5 px-2"
+            >
+              <RefreshCw className={`size-3.5 ${earnedLoading ? 'animate-spin' : ''}`} aria-hidden />
+              {earnedLoading ? '获取中…' : earnedError ? '重试获取' : '刷新获得状态'}
+            </Button>
+            {earnedError && earnedIds !== null && (
+              <p data-testid="earned-error" role="status" className="text-sm text-destructive">
+                刷新失败，保留上次结果
+              </p>
+            )}
+          </div>
         )}
         <FilterChips
           state={state}

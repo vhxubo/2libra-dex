@@ -137,7 +137,7 @@ Worker 端点(`worker/index.ts`,同源 `/api/auth/*`):
 
 ### 已获得徽章(登录后)
 
-登录成功后,前端调用 `/api/auth/user-badges`,Worker 以会话中的用户名抓取 `https://2libra.com/user/{用户名}/about`:该页会把佩戴徽章与徽章墙(客户端 `user-badge-display-modal` 弹窗的同一数据源)SSR 成 `r2.2libra.com/badge/svg/{id}.svg` 的图片引用,Worker 提取这些 id 即已获得徽章,无需用户在 2libra 侧额外授权。前端缓存 5 分钟,图鉴卡片/表格/详情弹窗展示「已获得」标记,并可在工具栏按 全部/已获得/未获得 筛选(URL 参数 `earned`);未登录或拉取失败时筛选与标记自动隐藏,不影响基础图鉴功能。
+登录成功后,前端调用 `/api/auth/user-badges`,Worker 以会话中的用户名抓取 `https://2libra.com/user/{用户名}/about`:该页会把佩戴徽章与徽章墙(客户端 `user-badge-display-modal` 弹窗的同一数据源)SSR 成 `r2.2libra.com/badge/svg/{id}.svg` 的图片引用,Worker 提取这些 id 即已获得徽章,无需用户在 2libra 侧额外授权。前端缓存 5 分钟,也可通过图鉴中的「刷新获得状态」手动绕过缓存;图鉴卡片/表格/详情弹窗展示「已获得」标记,并可在工具栏按 全部/已获得/未获得 筛选(URL 参数 `earned`);未登录或拉取失败时筛选与标记自动隐藏,已有结果在刷新失败时继续保留并提供重试入口,不影响基础图鉴功能。
 
 会话为无状态签名 cookie,不依赖数据库;后续接入 Cloudflare D1 等存储时,加 wrangler binding 即可让 API 调用天然携带身份,登录流程无需重构。2libra 的 access_token 有效期 2 小时且无 refresh token,仅展示资料不受影响,需刷新资料时重新走一次授权。
 
