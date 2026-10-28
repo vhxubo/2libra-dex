@@ -1,7 +1,7 @@
 {
   "meta": {
-    "badgeCount": 32,
-    "updatedAt": "2026-10-24"
+    "badgeCount": 33,
+    "updatedAt": "2026-10-28"
   },
   "badges": [
     {
@@ -13,6 +13,16 @@
       "condition": "被关注人数达到 99 人。",
       "attrType": "佩戴属性",
       "attr": "篝火般受人关注，为你的影响力护驾，发帖与评论的消耗恒定为 10 金币。"
+    },
+    {
+      "id": "hot_and_cold",
+      "name": "忽冷忽热",
+      "icon": "https://r2.2libra.com/badge/hot_and_cold.svg",
+      "level": "T0",
+      "rate": 0.05,
+      "condition": "签到和开启潘多拉盒子时，有 2.5% 的概率会掉落该徽章。",
+      "attrType": "描述",
+      "attr": "你那的气温如何？显示出来！"
     },
     {
       "id": "year_streak",
@@ -205,16 +215,6 @@
       "attr": "反转变化！金币的变动有概率正负值反转。"
     },
     {
-      "id": "on_time",
-      "name": "按时？",
-      "icon": "https://r2.2libra.com/badge/on_time.svg",
-      "level": "T1",
-      "rate": 2.59,
-      "condition": "限 1024 程序员节当天获取。但这个需求不需要按时，领取时间宽限多两天(≖ᴗ≖)✧",
-      "attrType": "描述",
-      "attr": "什么需求都按时？看看现在都几点了。"
-    },
-    {
       "id": "20260601",
       "name": "谁还不是宝宝呢！？",
       "icon": "https://r2.2libra.com/badge/20260601.svg",
@@ -233,6 +233,16 @@
       "condition": "2026 年中秋节期间签到获得。",
       "attrType": "描述",
       "attr": "共此明月，遥寄相思。"
+    },
+    {
+      "id": "on_time",
+      "name": "按时？",
+      "icon": "https://r2.2libra.com/badge/on_time.svg",
+      "level": "T1",
+      "rate": 12.31,
+      "condition": "限 1024 程序员节当天获取。但这个需求不需要按时，领取时间宽限多两天(≖ᴗ≖)✧",
+      "attrType": "描述",
+      "attr": "什么需求都按时？看看现在都几点了。"
     },
     {
       "id": "2libra_1",

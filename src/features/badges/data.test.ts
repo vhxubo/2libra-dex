@@ -3,8 +3,8 @@ import raw from '../../../badges.json'
 import { ATTR_TYPES, BADGES, BADGE_COUNT, BADGE_LEVELS, BADGE_UPDATED_AT, toBadgeAssets } from './data'
 
 describe('徽章数据', () => {
-  it('与 badges.json 的 meta 记录一致，共 32 条', () => {
-    expect(BADGE_COUNT).toBe(32)
+  it('与 badges.json 的 meta 记录一致，共 33 条', () => {
+    expect(BADGE_COUNT).toBe(33)
     expect(raw.meta.badgeCount).toBe(BADGES.length)
   })
 

@@ -67,9 +67,9 @@ function getCardNames(): string[] {
 }
 
 describe('BadgeDexPage', () => {
-  it('默认卡片视图展示全部 32 条数据的计数、更新时间与第一页 12 张卡片', () => {
+  it('默认卡片视图展示全部 33 条数据的计数、更新时间与第一页 12 张卡片', () => {
     renderPage()
-    expect(screen.getByTestId('result-count').textContent).toContain('32')
+    expect(screen.getByTestId('result-count').textContent).toContain('33')
     expect(screen.getByText(/数据更新于 \d{4}-\d{2}-\d{2}/)).toBeInTheDocument()
     expect(screen.getAllByTestId('badge-card')).toHaveLength(12)
     expect(screen.getByTestId('page-status').textContent).toBe('第 1 / 3 页')
@@ -186,7 +186,7 @@ describe('BadgeDexPage', () => {
 
     expect(screen.getByText('没有匹配的徽章')).toBeInTheDocument()
     await user.click(screen.getAllByRole('button', { name: '清空筛选' })[0])
-    expect(screen.getByTestId('result-count').textContent).toContain('32')
+    expect(screen.getByTestId('result-count').textContent).toContain('33')
     expect(screen.getAllByTestId('badge-card')).toHaveLength(12)
   })
 
@@ -196,9 +196,9 @@ describe('BadgeDexPage', () => {
 
     await user.click(screen.getByRole('button', { name: /等级 · 全部/ }))
     await user.click(screen.getByRole('menuitemcheckbox', { name: /T0/ }))
-    expect(screen.getByTestId('result-count').textContent).toContain('14')
+    expect(screen.getByTestId('result-count').textContent).toContain('15')
     await user.click(screen.getByRole('menuitemcheckbox', { name: /T3/ }))
-    expect(screen.getByTestId('result-count').textContent).toContain('17')
+    expect(screen.getByTestId('result-count').textContent).toContain('18')
 
     expect(screen.getByText('等级 T0')).toBeInTheDocument()
     expect(screen.getByText('等级 T3')).toBeInTheDocument()
@@ -219,13 +219,13 @@ describe('BadgeDexPage', () => {
     )
   })
 
-  it('切换每页条数后可一页展示全部 32 条', async () => {
+  it('切换每页条数后可一页展示全部 33 条', async () => {
     const user = userEvent.setup()
     renderPage('/badges?view=table')
 
     await user.click(screen.getByRole('button', { name: /条 \/ 页/ }))
     await user.click(screen.getByRole('menuitemradio', { name: '48 条 / 页' }))
-    expect(screen.getAllByTestId('badge-row')).toHaveLength(32)
+    expect(screen.getAllByTestId('badge-row')).toHaveLength(33)
     expect(screen.getByTestId('page-status').textContent).toBe('第 1 / 1 页')
   })
 
@@ -264,10 +264,10 @@ describe('BadgeDexPage', () => {
     expect(screen.getAllByTestId('earned-chip')).toHaveLength(2)
 
     await user.click(screen.getByRole('button', { name: /未获得/ }))
-    expect(screen.getByTestId('result-count').textContent).toContain('30')
+    expect(screen.getByTestId('result-count').textContent).toContain('31')
 
     await user.click(screen.getByRole('button', { name: /^全部/ }))
-    expect(screen.getByTestId('result-count').textContent).toContain('32')
+    expect(screen.getByTestId('result-count').textContent).toContain('33')
   })
 
   it('表格视图登录后增加获得状态列', async () => {
