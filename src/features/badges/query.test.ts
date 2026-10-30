@@ -56,8 +56,8 @@ describe('matchesQuery', () => {
 })
 
 describe('filterBadges', () => {
-  it('无条件筛选返回全部 33 条', () => {
-    expect(filterBadges(BADGES, EMPTY_FILTERS)).toHaveLength(33)
+  it('无条件筛选返回全部 34 条', () => {
+    expect(filterBadges(BADGES, EMPTY_FILTERS)).toHaveLength(34)
   })
 
   it('等级多选取交集', () => {
@@ -67,7 +67,7 @@ describe('filterBadges', () => {
 
   it('属性类型筛选', () => {
     const attr = filterBadges(BADGES, { ...EMPTY_FILTERS, attrType: '佩戴属性' })
-    expect(attr).toHaveLength(23)
+    expect(attr).toHaveLength(24)
     expect(attr.every((badge) => badge.attrType === '佩戴属性')).toBe(true)
   })
 
@@ -88,7 +88,7 @@ describe('filterBadges', () => {
     const owned = filterBadges(BADGES, { ...EMPTY_FILTERS, earned: 'owned', earnedIds })
     expect(owned.map((badge) => badge.id)).toEqual(['followers', 'year_streak'])
     const missing = filterBadges(BADGES, { ...EMPTY_FILTERS, earned: 'missing', earnedIds })
-    expect(missing).toHaveLength(31)
+    expect(missing).toHaveLength(32)
     expect(missing.every((badge) => !earnedIds.has(badge.id))).toBe(true)
   })
 
@@ -103,8 +103,8 @@ describe('filterBadges', () => {
   })
 
   it('已获得数据不可用时获得状态筛选不生效，避免误清空列表', () => {
-    expect(filterBadges(BADGES, { ...EMPTY_FILTERS, earned: 'owned', earnedIds: null })).toHaveLength(33)
-    expect(filterBadges(BADGES, { ...EMPTY_FILTERS, earned: 'missing', earnedIds: null })).toHaveLength(33)
+    expect(filterBadges(BADGES, { ...EMPTY_FILTERS, earned: 'owned', earnedIds: null })).toHaveLength(34)
+    expect(filterBadges(BADGES, { ...EMPTY_FILTERS, earned: 'missing', earnedIds: null })).toHaveLength(34)
   })
 })
 
@@ -112,10 +112,11 @@ describe('sortBadges', () => {
   it('获得率升序，同获得率以 ID 稳定排序', () => {
     const result = sortBadges(BADGES, 'rate-asc')
     expect(result[0].id).toBe('followers')
-    // hot_and_cold 与 rich/year_streak 之间以获得率排序
-    expect(result[1].id).toBe('hot_and_cold')
-    expect(result[2].id).toBe('rich')
-    expect(result[3].id).toBe('year_streak')
+    // silicon_endorsed 与 followers 同为 0.01，以 ID 稳定排序；其后为 hot_and_cold 与 rich/year_streak
+    expect(result[1].id).toBe('silicon_endorsed')
+    expect(result[2].id).toBe('hot_and_cold')
+    expect(result[3].id).toBe('rich')
+    expect(result[4].id).toBe('year_streak')
     for (let i = 1; i < result.length; i += 1) {
       expect(result[i].rate).toBeGreaterThanOrEqual(result[i - 1].rate)
     }
@@ -124,7 +125,7 @@ describe('sortBadges', () => {
   it('获得率降序', () => {
     const result = sortBadges(BADGES, 'rate-desc')
     expect(result[0].id).toBe('2libra_1')
-    expect(result[0].rate).toBe(29.92)
+    expect(result[0].rate).toBe(29.72)
     for (let i = 1; i < result.length; i += 1) {
       expect(result[i].rate).toBeLessThanOrEqual(result[i - 1].rate)
     }

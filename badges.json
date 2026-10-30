@@ -1,7 +1,7 @@
 {
   "meta": {
-    "badgeCount": 33,
-    "updatedAt": "2026-10-28"
+    "badgeCount": 34,
+    "updatedAt": "2026-10-30"
   },
   "badges": [
     {
@@ -95,16 +95,6 @@
       "attr": "就刚好路过，刚好拿到了。"
     },
     {
-      "id": "level_10",
-      "name": "等级丰碑",
-      "icon": "https://r2.2libra.com/badge/level_10.svg",
-      "level": "T0",
-      "rate": 0.48,
-      "condition": "等级达到 10 级。",
-      "attrType": "佩戴属性",
-      "attr": "佩戴时，获得金币减少 50%，获得经验增加 50%。"
-    },
-    {
       "id": "lucker",
       "name": "幸运儿",
       "icon": "https://r2.2libra.com/badge/lucker.svg",
@@ -113,6 +103,16 @@
       "condition": "金币池中奖次数达到 50 次。",
       "attrType": "佩戴属性",
       "attr": "好运到～佩戴此徽章的用户，金币池中奖将额外获得 100 金币。"
+    },
+    {
+      "id": "level_10",
+      "name": "等级丰碑",
+      "icon": "https://r2.2libra.com/badge/level_10.svg",
+      "level": "T0",
+      "rate": 0.54,
+      "condition": "等级达到 10 级。",
+      "attrType": "佩戴属性",
+      "attr": "佩戴时，获得金币减少 50%，获得经验增加 50%。"
     },
     {
       "id": "seed_user",
@@ -149,10 +149,20 @@
       "name": "马上来",
       "icon": "https://r2.2libra.com/badge/horse_year.svg",
       "level": "T0",
-      "rate": 22.58,
+      "rate": 22.44,
       "condition": "授予在 2026 年 2 月 15 至 2026 年 3 月 15 日登录过的用户。",
       "attrType": "佩戴属性",
       "attr": "新年快乐~ 2Libra 祝你和家人们马年健康幸福，财运马上来！"
+    },
+    {
+      "id": "silicon_endorsed",
+      "name": "硅基认可",
+      "icon": "https://r2.2libra.com/badge/silicon_endorsed.svg",
+      "level": "T1",
+      "rate": 0.01,
+      "condition": "赛博点赞，硅基生命屡次对你的文字表达价值认可时颁发此徽章。",
+      "attrType": "佩戴属性",
+      "attr": "佩戴时，发帖费用降低 50%，因价值分较高获得的置顶时间延长 30% 以及金币提升 30%。"
     },
     {
       "id": "rich",
@@ -219,7 +229,7 @@
       "name": "谁还不是宝宝呢！？",
       "icon": "https://r2.2libra.com/badge/20260601.svg",
       "level": "T1",
-      "rate": 3.91,
+      "rate": 3.88,
       "condition": "2026 年儿童节当天限时领取。",
       "attrType": "描述",
       "attr": "希望你在今天可以找回小时候独有的快乐。"
@@ -229,7 +239,7 @@
       "name": "观月",
       "icon": "https://r2.2libra.com/badge/mid_autumn.svg",
       "level": "T1",
-      "rate": 9.22,
+      "rate": 9.15,
       "condition": "2026 年中秋节期间签到获得。",
       "attrType": "描述",
       "attr": "共此明月，遥寄相思。"
@@ -239,7 +249,7 @@
       "name": "按时？",
       "icon": "https://r2.2libra.com/badge/on_time.svg",
       "level": "T1",
-      "rate": 12.31,
+      "rate": 12.29,
       "condition": "限 1024 程序员节当天获取。但这个需求不需要按时，领取时间宽限多两天(≖ᴗ≖)✧",
       "attrType": "描述",
       "attr": "什么需求都按时？看看现在都几点了。"
@@ -249,7 +259,7 @@
       "name": "2Libra 一周年！",
       "icon": "https://r2.2libra.com/badge/2libra_1.svg",
       "level": "T1",
-      "rate": 29.92,
+      "rate": 29.72,
       "condition": "2026 年 8 月 26 日（含）发布过一篇帖子或一条评论的用户。",
       "attrType": "描述",
       "attr": "感谢你的相伴♥️。"
@@ -299,7 +309,7 @@
       "name": "都听我说！",
       "icon": "https://r2.2libra.com/badge/listen_to_me.svg",
       "level": "T2",
-      "rate": 1.57,
+      "rate": 1.60,
       "condition": "用户发布的评论数超过 200 个。",
       "attrType": "佩戴属性",
       "attr": "发布评论金币消耗降低 30%。"
@@ -319,7 +329,7 @@
       "name": "温暖的人",
       "icon": "https://r2.2libra.com/badge/warm_hearted.svg",
       "level": "T3",
-      "rate": 0.22,
+      "rate": 0.21,
       "condition": "表态 ❤️ 超过 200 个。",
       "attrType": "佩戴属性",
       "attr": "谢谢你。每次给人点 ❤️，可以返还 20% 金币。"
@@ -329,7 +339,7 @@
       "name": "讲故事的人",
       "icon": "https://r2.2libra.com/badge/storyteller.svg",
       "level": "T3",
-      "rate": 0.29,
+      "rate": 0.27,
       "condition": "发布过的正文长度超过 500 字的帖子数超过 10 个。",
       "attrType": "佩戴属性",
       "attr": "发表基础帖子消耗的金币恒定为 10 金币。"
